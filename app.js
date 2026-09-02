@@ -177,6 +177,17 @@ const Auth = {
 
   clearSession() { sessionStorage.removeItem(STORAGE.SESSION); },
 
+  touch() {
+    const s = sessionStorage.getItem(STORAGE.SESSION);
+    if (s) {
+      try {
+        const data = JSON.parse(s);
+        data.lastActivity = new Date().toISOString();
+        sessionStorage.setItem(STORAGE.SESSION, JSON.stringify(data));
+      } catch(e) {}
+    }
+  },
+
   defaultRoute(role) { return { Admin:'admin-dashboard', Midwife:'midwife-dashboard', BHW:'bhw-dashboard' }[role] || 'admin-dashboard'; },
 
   async handleLogin(e) {
@@ -210,6 +221,16 @@ const Auth = {
       document.getElementById('login-page').style.display = 'flex';
       const f = document.getElementById('login-form');
       if (f) f.reset();
+      
+      const errEl = document.getElementById('login-error');
+      if (errEl) errEl.style.display = 'none';
+      
+      const btn = document.getElementById('login-btn');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Sign In';
+      }
+
       window.location.hash = '';
     }, 'warning');
   },
@@ -221,79 +242,6 @@ const Auth = {
     } catch (e) {
       return false;
     }
-  },
-};
-    Store.set(STORAGE.SESSION, s);
-    return s;
-  },
-
-  touch() {
-    const s = Store.get(STORAGE.SESSION);
-    if (s) { s.lastActivity = new Date().toISOString(); Store.set(STORAGE.SESSION, s); }
-  },
-
-  clearSession() { localStorage.removeItem(STORAGE.SESSION); },
-
-  defaultRoute(role) { return { Admin:'admin-dashboard', Midwife:'midwife-dashboard', BHW:'bhw-dashboard' }[role] || 'admin-dashboard'; },
-
-  handleLogin(e) {
-    e.preventDefault();
-    const uname = document.getElementById('login-username').value.trim();
-    const pw    = document.getElementById('login-password').value;
-    const errEl = document.getElementById('login-error');
-    const btn   = document.getElementById('login-btn');
-
-    errEl.style.display = 'none';
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Signing in…';
-
-    setTimeout(() => {
-      const users = Store.arr(STORAGE.USERS);
-      const user  = users.find(u => u.username === uname && u.passwordHash === hashPw(pw) && u.status === 'Active');
-
-      if (!user) {
-        errEl.textContent = 'Invalid username or password. Please check your credentials and try again.';
-        errEl.style.display = 'flex';
-        btn.disabled = false;
-        btn.innerHTML = 'Sign In';
-        return;
-      }
-
-      // update last login
-      user.lastLogin = new Date().toISOString();
-      Store.set(STORAGE.USERS, users);
-
-      Auth.setSession(user);
-      Audit.log('login', 'System', 'Successful login from browser session');
-      Router.navigate(Auth.defaultRoute(user.role));
-    }, 500);
-  },
-
-  logout() {
-    UI.confirm('Sign Out', 'Are you sure you want to log out of BHIS?', () => {
-      Audit.log('logout', 'System', 'User ended session');
-      Auth.clearSession();
-      document.getElementById('app-shell').style.display = 'none';
-      document.getElementById('login-page').style.display = 'flex';
-      const f = document.getElementById('login-form');
-      if (f) f.reset();
-      document.getElementById('login-error').style.display = 'none';
-      document.getElementById('login-btn').disabled = false;
-      document.getElementById('login-btn').innerHTML = 'Sign In';
-      window.location.hash = '';
-    }, 'warning');
-  },
-
-  changePw(oldPw, newPw) {
-    const s = Auth.getSession();
-    if (!s) return false;
-    const users = Store.arr(STORAGE.USERS);
-    const u = users.find(u => u.id === s.userId);
-    if (!u || u.passwordHash !== hashPw(oldPw)) return false;
-    u.passwordHash = hashPw(newPw);
-    Store.set(STORAGE.USERS, users);
-    Audit.log('edit', `User: ${s.username}`, 'Changed own password');
-    return true;
   },
 };
 
