@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>BHIS Component Diagram</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8f9fa;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      max-width: 1200px;
+      width: 100%;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+  </style>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ 
+      startOnLoad: true,
+      theme: 'default',
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>BHIS Component Diagram</h1>
+    <div class="mermaid">
+      flowchart LR
+          %% Actors
+          Admin([Admin])
+          MidWife([Mid Wife])
+          BHW([Barangay Health Worker])
+
+          %% Database
+          DB[(BHIS Database)]
+
+          %% System Boundary
+          subgraph System [BHIS System]
+              direction TB
+              
+              %% Interfaces
+              AdminUI[Admin Interface]
+              MidWifeUI[Mid Wife Interface]
+              BHWUI[BHW Interface]
+              
+              %% Backend Components
+              SessionMgmt[Session Management]
+              AuditMgmt[Audit Management]
+              AccountMgmt[Account Management]
+              ReportMgmt[Report Management]
+              PrenatalMgmt[Prenatal Management]
+              ChildMgmt[Child Management]
+          end
+
+          %% Actor Connections
+          Admin -- Login --> AdminUI
+          MidWife -- Login --> MidWifeUI
+          BHW -- Login --> BHWUI
+
+          %% Admin UI Connections
+          AdminUI -- "Read/View User\nArchive User\nSearch User\nAssign/Change Role\nReset Password" --> AccountMgmt
+          AdminUI -- "Change Username\nChange Password\nChange Role" --> AccountMgmt
+          AdminUI --> SessionMgmt
+          AdminUI -- "Clear Old Logs\nView Audit Log\nSearch/Filter Audit Log\nExport Audit Log" --> AuditMgmt
+
+          %% Mid Wife UI Connections
+          MidWifeUI -- "Export/Generate/Preview Report\nView Dashboard Summary" --> ReportMgmt
+          MidWifeUI -- "Register/View/Update Patient\nLog Visit\nTrack Delivery" --> PrenatalMgmt
+          MidWifeUI -- "Register/View/Update Child\nAdd Immunization\nView Schedule" --> ChildMgmt
+          MidWifeUI --> SessionMgmt
+
+          %% BHW UI Connections
+          BHWUI -- "View Children/Prenatal Record\nView Vaccination Schedule" --> ChildMgmt
+          BHWUI --> PrenatalMgmt
+          BHWUI --> SessionMgmt
+
+          %% Database Connections
+          SessionMgmt --> DB
+          AuditMgmt --> DB
+          AccountMgmt --> DB
+          ReportMgmt --> DB
+          PrenatalMgmt --> DB
+          ChildMgmt --> DB
+          
+          %% Styling
+          classDef actor fill:#f9f9f9,stroke:#333,stroke-width:2px;
+          classDef component fill:#87CEEB,stroke:#222,stroke-width:1.5px,color:#000;
+          classDef database fill:#f4d03f,stroke:#222,stroke-width:1.5px;
+          
+          class Admin,MidWife,BHW actor;
+          class AdminUI,MidWifeUI,BHWUI,SessionMgmt,AuditMgmt,AccountMgmt,ReportMgmt,PrenatalMgmt,ChildMgmt component;
+          class DB database;
+    </div>
+  </div>
+</body>
+</html>

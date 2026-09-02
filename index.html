@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BHIS — Barangay Health Information System</title>
+  <meta name="description" content="A role-based health information system for managing prenatal care, child immunization, user accounts, and FHSIS reports for barangay health centers.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+  <!-- jsPDF + AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+  <!-- SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.js"></script>
+</head>
+<body>
+
+  <!-- ===== LOGIN PAGE ===== -->
+  <div id="login-page">
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-logo">
+          <div class="login-logo-icon">🏥</div>
+          <h1>BHIS</h1>
+          <p>Barangay Health Information System</p>
+        </div>
+
+        <form id="login-form" onsubmit="Auth.handleLogin(event)" novalidate>
+          <div class="form-group">
+            <label for="login-username">Username</label>
+            <input
+              type="text"
+              id="login-username"
+              class="form-control"
+              placeholder="Enter your username"
+              autocomplete="username"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input
+              type="password"
+              id="login-password"
+              class="form-control"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              required
+            >
+          </div>
+
+          <div id="login-error" class="alert alert-danger" style="display:none;margin-bottom:14px;"></div>
+
+          <button type="submit" class="btn btn-primary btn-full" id="login-btn" style="padding:11px 18px;font-size:0.9rem;">
+            Sign In
+          </button>
+        </form>
+
+        <p style="text-align:center;margin-top:18px;font-size:0.74rem;color:var(--text-muted);line-height:1.7;">
+          Demo accounts:<br>
+          <code>admin / admin123</code> &nbsp;·&nbsp;
+          <code>midwife / midwife123</code> &nbsp;·&nbsp;
+          <code>bhw / bhw123</code>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== APP SHELL ===== -->
+  <div id="app-shell" style="display:none;">
+
+    <!-- Mobile sidebar toggle -->
+    <button id="sidebar-toggle" onclick="UI.toggleSidebar()" aria-label="Toggle menu">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="UI.toggleSidebar()"></div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar" role="navigation" aria-label="Main navigation">
+      <div class="sidebar-logo">
+        <div class="logo-icon">🏥</div>
+        <div class="logo-text">
+          <h2>BHIS</h2>
+          <span id="sidebar-barangay">Barangay Health System</span>
+        </div>
+      </div>
+
+      <nav id="sidebar-nav"></nav>
+
+      <div class="sidebar-user">
+        <div class="sidebar-avatar" id="sidebar-avatar" aria-hidden="true">A</div>
+        <div class="sidebar-user-info">
+          <div class="sname" id="sidebar-name">User</div>
+          <div class="srole" id="sidebar-role">Role</div>
+        </div>
+        <button class="logout-btn" onclick="Auth.logout()" title="Sign Out" aria-label="Sign out">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA (dynamically rendered) -->
+    <main id="main-content" role="main"></main>
+  </div>
+
+  <!-- ===== MODAL OVERLAY ===== -->
+  <div id="modal-overlay" style="display:none;" onclick="UI.closeModalOnOverlay(event)" role="dialog" aria-modal="true">
+    <div id="modal-container"></div>
+  </div>
+
+  <!-- ===== TOAST CONTAINER ===== -->
+  <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

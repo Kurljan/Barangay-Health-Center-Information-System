@@ -1,0 +1,144 @@
+:root {
+  --bg-blue: #87CEEB; /* Matched to standard UML tool color */
+  --line-color: #222;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #e5e5e5;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+}
+
+.canvas {
+  width: 800px;
+  height: 500px;
+  background: white;
+  position: relative;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+
+.component-box {
+  position: absolute;
+  background: var(--bg-blue);
+  border: 1.5px solid var(--line-color);
+  box-sizing: border-box;
+}
+
+.system-boundary {
+  top: 20px;
+  left: 20px;
+  width: 760px;
+  height: 460px;
+  z-index: 1;
+}
+
+.system-boundary > .stereotype {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--line-color);
+}
+
+.system-boundary > .name {
+  text-align: center;
+  font-size: 15px;
+  color: var(--line-color);
+}
+
+.inner-component {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 12px;
+  z-index: 10;
+}
+
+.inner-component .stereotype {
+  font-size: 11px;
+  margin-bottom: 4px;
+  color: var(--line-color);
+}
+
+.inner-component .name {
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--line-color);
+}
+
+/* Component Icon Layout */
+.icon {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 16px;
+  height: 20px;
+}
+.icon-main {
+  position: absolute;
+  right: 0;
+  width: 12px;
+  height: 18px;
+  border: 1.5px solid var(--line-color);
+  background: var(--bg-blue);
+  box-sizing: border-box;
+}
+.icon-peg {
+  position: absolute;
+  left: 0;
+  width: 7px;
+  height: 5px;
+  border: 1.5px solid var(--line-color);
+  background: var(--bg-blue);
+  box-sizing: border-box;
+  z-index: 2;
+}
+.icon-peg.top { top: 3px; }
+.icon-peg.bottom { bottom: 3px; }
+
+/* Connectors */
+.line {
+  position: absolute;
+  background: var(--line-color);
+  z-index: 10;
+}
+.line.h { height: 1.5px; }
+.line.v { width: 1.5px; }
+
+.socket {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--line-color);
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: transparent;
+  z-index: 10;
+}
+.socket.open-right { border-right-color: transparent; }
+.socket.open-left { border-left-color: transparent; }
+.socket.open-down { border-bottom-color: transparent; }
+.socket.open-up { border-top-color: transparent; }
+
+.lollipop {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--line-color);
+  border-radius: 50%;
+  box-sizing: border-box;
+  background: var(--bg-blue);
+  z-index: 11;
+}
+
+.label {
+  position: absolute;
+  font-size: 11px;
+  color: var(--line-color);
+  z-index: 10;
+  padding: 0 2px;
+}
