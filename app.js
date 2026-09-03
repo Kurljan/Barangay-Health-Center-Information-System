@@ -21,6 +21,22 @@ const STORAGE = {
   SEEDED:     'bhis_seeded_v2',
 };
 
+const Store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch(e){return null;} },
+  arr(k) { const v = this.get(k); return Array.isArray(v) ? v : []; },
+  set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
+  add(k, item) { const a = this.arr(k); a.push(item); this.set(k, a); },
+  update(k, id, payload) { 
+    const a = this.arr(k); 
+    const i = a.findIndex(x => x.id === id); 
+    if(i>-1) { a[i] = {...a[i], ...payload}; this.set(k, a); } 
+  },
+  remove(k, id) { 
+    const a = this.arr(k); 
+    this.set(k, a.filter(x => x.id !== id)); 
+  }
+};
+
 const VACCINE_SCHEDULE = [
   { id: 'bcg',       name: 'BCG',              doses: [{ dose:1, dayOffset:0,   label:'At Birth'  }] },
   { id: 'hepb',      name: 'Hepatitis B',       doses: [{ dose:1, dayOffset:0,   label:'At Birth'  }, { dose:2, dayOffset:42,  label:'6 weeks'  }, { dose:3, dayOffset:98,  label:'14 weeks' }] },
@@ -200,12 +216,17 @@ const Auth = {
     errEl.style.display = 'none';
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Signing in…';
-
+    console.log('[DEBUG] Starting login flow');
     try {
+      console.log('[DEBUG] Calling API.post');
       const data = await API.post('/auth/login', { username: uname, password: pw });
+      console.log('[DEBUG] API returned successfully');
       Auth.setSession(data.token, data.user);
+      console.log('[DEBUG] Session set. Navigating to', Auth.defaultRoute(data.user.role));
       Router.navigate(Auth.defaultRoute(data.user.role));
+      console.log('[DEBUG] Navigation triggered');
     } catch (err) {
+      console.error('[DEBUG] Caught error:', err);
       errEl.textContent = err.message;
       errEl.style.display = 'flex';
       btn.disabled = false;
@@ -471,7 +492,14 @@ const Router = {
     this.resolve();
   },
 
-  navigate(route) { window.location.hash = '#/' + route; },
+  navigate(route) {
+    const target = '#/' + route;
+    if (window.location.hash === target) {
+      this.resolve();
+    } else {
+      window.location.hash = target;
+    }
+  },
 
   resolve() {
     const route = (window.location.hash.replace('#/', '') || '').split('?')[0];
@@ -2455,6 +2483,5 @@ function rk_esc(session) {
 // ================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  Store.seed();
   Router.init();
 });
