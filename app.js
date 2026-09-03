@@ -21,6 +21,22 @@ const STORAGE = {
   SEEDED:     'bhis_seeded_v2',
 };
 
+const Store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch(e){return null;} },
+  arr(k) { const v = this.get(k); return Array.isArray(v) ? v : []; },
+  set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
+  add(k, item) { const a = this.arr(k); a.push(item); this.set(k, a); },
+  update(k, id, payload) { 
+    const a = this.arr(k); 
+    const i = a.findIndex(x => x.id === id); 
+    if(i>-1) { a[i] = {...a[i], ...payload}; this.set(k, a); } 
+  },
+  remove(k, id) { 
+    const a = this.arr(k); 
+    this.set(k, a.filter(x => x.id !== id)); 
+  }
+};
+
 const VACCINE_SCHEDULE = [
   { id: 'bcg',       name: 'BCG',              doses: [{ dose:1, dayOffset:0,   label:'At Birth'  }] },
   { id: 'hepb',      name: 'Hepatitis B',       doses: [{ dose:1, dayOffset:0,   label:'At Birth'  }, { dose:2, dayOffset:42,  label:'6 weeks'  }, { dose:3, dayOffset:98,  label:'14 weeks' }] },
@@ -177,6 +193,17 @@ const Auth = {
 
   clearSession() { sessionStorage.removeItem(STORAGE.SESSION); },
 
+  touch() {
+    const s = sessionStorage.getItem(STORAGE.SESSION);
+    if (s) {
+      try {
+        const data = JSON.parse(s);
+        data.lastActivity = new Date().toISOString();
+        sessionStorage.setItem(STORAGE.SESSION, JSON.stringify(data));
+      } catch(e) {}
+    }
+  },
+
   defaultRoute(role) { return { Admin:'admin-dashboard', Midwife:'midwife-dashboard', BHW:'bhw-dashboard' }[role] || 'admin-dashboard'; },
 
   async handleLogin(e) {
@@ -189,12 +216,17 @@ const Auth = {
     errEl.style.display = 'none';
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Signing in…';
-
+    console.log('[DEBUG] Starting login flow');
     try {
+      console.log('[DEBUG] Calling API.post');
       const data = await API.post('/auth/login', { username: uname, password: pw });
+      console.log('[DEBUG] API returned successfully');
       Auth.setSession(data.token, data.user);
+      console.log('[DEBUG] Session set. Navigating to', Auth.defaultRoute(data.user.role));
       Router.navigate(Auth.defaultRoute(data.user.role));
+      console.log('[DEBUG] Navigation triggered');
     } catch (err) {
+      console.error('[DEBUG] Caught error:', err);
       errEl.textContent = err.message;
       errEl.style.display = 'flex';
       btn.disabled = false;
@@ -210,6 +242,16 @@ const Auth = {
       document.getElementById('login-page').style.display = 'flex';
       const f = document.getElementById('login-form');
       if (f) f.reset();
+      
+      const errEl = document.getElementById('login-error');
+      if (errEl) errEl.style.display = 'none';
+      
+      const btn = document.getElementById('login-btn');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Sign In';
+      }
+
       window.location.hash = '';
     }, 'warning');
   },
@@ -221,79 +263,6 @@ const Auth = {
     } catch (e) {
       return false;
     }
-  },
-};
-    Store.set(STORAGE.SESSION, s);
-    return s;
-  },
-
-  touch() {
-    const s = Store.get(STORAGE.SESSION);
-    if (s) { s.lastActivity = new Date().toISOString(); Store.set(STORAGE.SESSION, s); }
-  },
-
-  clearSession() { localStorage.removeItem(STORAGE.SESSION); },
-
-  defaultRoute(role) { return { Admin:'admin-dashboard', Midwife:'midwife-dashboard', BHW:'bhw-dashboard' }[role] || 'admin-dashboard'; },
-
-  handleLogin(e) {
-    e.preventDefault();
-    const uname = document.getElementById('login-username').value.trim();
-    const pw    = document.getElementById('login-password').value;
-    const errEl = document.getElementById('login-error');
-    const btn   = document.getElementById('login-btn');
-
-    errEl.style.display = 'none';
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Signing in…';
-
-    setTimeout(() => {
-      const users = Store.arr(STORAGE.USERS);
-      const user  = users.find(u => u.username === uname && u.passwordHash === hashPw(pw) && u.status === 'Active');
-
-      if (!user) {
-        errEl.textContent = 'Invalid username or password. Please check your credentials and try again.';
-        errEl.style.display = 'flex';
-        btn.disabled = false;
-        btn.innerHTML = 'Sign In';
-        return;
-      }
-
-      // update last login
-      user.lastLogin = new Date().toISOString();
-      Store.set(STORAGE.USERS, users);
-
-      Auth.setSession(user);
-      Audit.log('login', 'System', 'Successful login from browser session');
-      Router.navigate(Auth.defaultRoute(user.role));
-    }, 500);
-  },
-
-  logout() {
-    UI.confirm('Sign Out', 'Are you sure you want to log out of BHIS?', () => {
-      Audit.log('logout', 'System', 'User ended session');
-      Auth.clearSession();
-      document.getElementById('app-shell').style.display = 'none';
-      document.getElementById('login-page').style.display = 'flex';
-      const f = document.getElementById('login-form');
-      if (f) f.reset();
-      document.getElementById('login-error').style.display = 'none';
-      document.getElementById('login-btn').disabled = false;
-      document.getElementById('login-btn').innerHTML = 'Sign In';
-      window.location.hash = '';
-    }, 'warning');
-  },
-
-  changePw(oldPw, newPw) {
-    const s = Auth.getSession();
-    if (!s) return false;
-    const users = Store.arr(STORAGE.USERS);
-    const u = users.find(u => u.id === s.userId);
-    if (!u || u.passwordHash !== hashPw(oldPw)) return false;
-    u.passwordHash = hashPw(newPw);
-    Store.set(STORAGE.USERS, users);
-    Audit.log('edit', `User: ${s.username}`, 'Changed own password');
-    return true;
   },
 };
 
@@ -523,7 +492,14 @@ const Router = {
     this.resolve();
   },
 
-  navigate(route) { window.location.hash = '#/' + route; },
+  navigate(route) {
+    const target = '#/' + route;
+    if (window.location.hash === target) {
+      this.resolve();
+    } else {
+      window.location.hash = target;
+    }
+  },
 
   resolve() {
     const route = (window.location.hash.replace('#/', '') || '').split('?')[0];
@@ -2507,6 +2483,5 @@ function rk_esc(session) {
 // ================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-  Store.seed();
   Router.init();
 });

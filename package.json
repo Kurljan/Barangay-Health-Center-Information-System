@@ -1,0 +1,10 @@
+{
+  "name": "bhis",
+  "version": "1.0.0",
+  "description": "Barangay Health Information System",
+  "scripts": {
+    "start": "cd backend && node server.js",
+    "dev":   "cd backend && npx nodemon server.js",
+    "seed":  "cd backend && node seed.js"
+  }
+}

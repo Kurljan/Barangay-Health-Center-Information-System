@@ -29,9 +29,8 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password.' });
     }
 
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save({ validateBeforeSave: false });
+    // Update last login — use updateOne to bypass pre-save hook overhead
+    await User.updateOne({ _id: user._id }, { $set: { lastLogin: new Date() } });
 
     // Sign JWT
     const token = jwt.sign(
@@ -40,15 +39,15 @@ router.post('/login', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '8h' }
     );
 
-    // Audit log
-    await createAuditLog({
+    // Audit log — fire-and-forget so it doesn't delay the login response
+    createAuditLog({
       userId:   user._id,
       username: user.username,
       role:     user.role,
       action:   'login',
       target:   `User: ${user.username}`,
       details:  'User logged in successfully',
-    });
+    }).catch(err => console.error('Audit log failed:', err.message));
 
     res.json({
       token,
