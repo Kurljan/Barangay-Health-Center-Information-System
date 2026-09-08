@@ -83,6 +83,38 @@ router.get('/me', protectRoute, (req, res) => {
   res.json({ user: req.user });
 });
 
+// ── PUT /api/auth/change-username ─────────────────────────────
+router.put('/change-username', protectRoute, async (req, res) => {
+  try {
+    const { newUsername, password } = req.body;
+    if (!newUsername || !password) return res.status(400).json({ error: 'Username and password are required.' });
+    
+    const user = await User.findById(req.user._id);
+    const match = await user.comparePassword(password);
+    if (!match) return res.status(400).json({ error: 'Current password is incorrect.' });
+
+    const exists = await User.findOne({ username: newUsername.toLowerCase().trim() });
+    if (exists && exists._id.toString() !== user._id.toString()) {
+      return res.status(400).json({ error: 'That username is already taken.' });
+    }
+
+    const old = user.username;
+    user.username = newUsername.toLowerCase().trim();
+    await user.save();
+
+    await createAuditLog({
+      userId: user._id, username: user.username, role: user.role,
+      action: 'update', target: `User: ${old}`,
+      details: `Changed username to ${user.username}`,
+    });
+
+    res.json({ message: 'Username updated successfully.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 // ── PUT /api/auth/change-password ─────────────────────────────
 router.put('/change-password', protectRoute, async (req, res) => {
   try {

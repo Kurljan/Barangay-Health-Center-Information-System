@@ -603,6 +603,7 @@ tbody tr.row-highrisk { background: rgba(245,166,35,0.04); }
   animation: fadeIn 0.18s ease;
 }
 .modal {
+  display: block;
   background: var(--bg-card);
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: var(--radius-xl);

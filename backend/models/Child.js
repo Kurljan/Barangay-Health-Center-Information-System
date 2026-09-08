@@ -14,6 +14,7 @@ const childSchema = new mongoose.Schema({
   sex:         { type: String, required: true, enum: ['Male', 'Female'] },
   motherName:  { type: String, required: true, trim: true },
   address:     { type: String, default: '' },
+  purok:       { type: String, default: '' },
   contact:     { type: String, default: '' },
   vaccines:    [vaccineGivenSchema],               // Array of doses actually given
   createdBy:   { type: String, required: true },

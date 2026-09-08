@@ -314,6 +314,7 @@ const Imm = {
 // ================================================================
 
 const State = {
+  cache:     {},
   prenatal:  { page:1, search:'', filter:'all' },
   children:  { page:1, search:'', filter:'all' },
   users:     { page:1, search:'', filter:'all' },
@@ -577,16 +578,31 @@ const Pages = {
   // ──────────────────────────────────────────────────────────────
   // ADMIN DASHBOARD
   // ──────────────────────────────────────────────────────────────
-  adminDashboard(el, session) {
-    const users    = Store.arr(STORAGE.USERS);
-    const prenatal = Store.arr(STORAGE.PRENATAL).filter(p => !p.archived);
-    const children = Store.arr(STORAGE.CHILDREN).filter(c => !c.archived);
-    const logs     = Store.arr(STORAGE.AUDIT).slice(0, 6);
-    const prefs    = Store.get(STORAGE.DASH_PREFS) || { showUsers:true, showPrenatal:true, showChildren:true, showAlerts:true };
+  async adminDashboard(el, session) {
+    el.innerHTML = '<div class="page-content"><div style="text-align:center;padding:40px;"><i data-lucide="loader"></i> Loading Dashboard…</div></div>';
+    if (window.lucide) lucide.createIcons();
 
-    const activeUsers   = users.filter(u => u.status === 'Active').length;
-    const overdueVaccine= children.filter(c => Imm.isOverdue(c)).length;
-    const highRiskCount = prenatal.filter(p => p.highRisk).length;
+    let activeUsers = 0, overdueVaccine = 0, highRiskCount = 0, logs = [];
+    try {
+      const [uRes, pRes, cRes, lRes] = await Promise.all([
+        API.get('/users?limit=1000'),
+        API.get('/prenatal?limit=1000'),
+        API.get('/children?limit=1000'),
+        API.get('/audit?limit=6')
+      ]);
+      const users = uRes.users || [];
+      const prenatal = (pRes.records || []).filter(p => !p.archived);
+      const children = (cRes.records || []).filter(c => !c.archived);
+      logs = lRes.logs || [];
+      
+      activeUsers = users.filter(u => u.status === 'Active').length;
+      overdueVaccine = children.filter(c => Imm.isOverdue(c)).length;
+      highRiskCount = prenatal.filter(p => p.highRisk).length;
+    } catch (err) {
+      el.innerHTML = `<div class="page-content"><div class="alert alert-danger">Error: ${esc(err.message)}</div></div>`;
+      return;
+    }
+    const prefs = State.cache.dashPrefs || { showUsers:true, showPrenatal:true, showChildren:true, showAlerts:true };
 
     el.innerHTML = `
       <div class="page-header">
@@ -669,17 +685,27 @@ const Pages = {
   // ──────────────────────────────────────────────────────────────
   adminUsers(el, session) { this._usersPage(el, session, 1); },
 
-  _usersPage(el, session, page) {
+  async _usersPage(el, session, page) {
     State.users.page = page;
-    let all = Store.arr(STORAGE.USERS);
+    const params = new URLSearchParams({ page, limit: 10 });
+    if (State.users.search) params.set('search', State.users.search);
+    if (State.users.filter !== 'all') params.set('role', State.users.filter);
 
-    let filtered = all.filter(u => {
-      const q = State.users.search.toLowerCase();
-      return (!q || u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q))
-          && (State.users.filter === 'all' || u.role === State.users.filter);
-    });
+    el.innerHTML = `<div class="page-header"><h1>User Management</h1><p>Create, update, and manage all system user accounts and roles.</p></div><div class="page-content"><div class="section-header mb-16"><div></div><button class="btn btn-primary" onclick="Pages.showCreateUserModal()"><i data-lucide="user-plus"></i> Add User</button></div><div style="text-align:center;padding:40px;color:var(--text-secondary);"><i data-lucide="loader"></i> Loading…</div></div>`;
+    if (window.lucide) lucide.createIcons();
 
-    const { items, page:pg, totalPages, total } = UI.paginate(filtered, page);
+    let items = [], total = 0, pg = page, totalPages = 1;
+    try {
+      const data = await API.get('/users?' + params);
+      items = (data.users || []).map(u => ({ ...u, id: String(u._id) }));
+      total = data.total || 0;
+      pg = data.page || page;
+      totalPages = data.pages || 1;
+      State.cache.users = items; // Store in cache for modals
+    } catch(err) {
+      el.innerHTML = `<div class="page-header"><h1>User Management</h1></div><div class="page-content"><div class="alert alert-danger">⚠️ Failed to load users: ${esc(err.message)}</div></div>`;
+      return;
+    }
 
     el.innerHTML = `
       <div class="page-header">
@@ -696,9 +722,9 @@ const Pages = {
             <div class="search-input-wrapper">
               <span class="search-icon"><i data-lucide="search"></i></span>
               <input type="text" class="search-input" placeholder="Search name or username…" value="${esc(State.users.search)}"
-                oninput="State.users.search=this.value;Pages._usersPage(document.getElementById('main-content'),null,1)">
+                oninput="State.users.search=this.value;Pages._usersPage(document.getElementById('main-content'),Auth.getSession(),1)">
             </div>
-            <select class="filter-select" onchange="State.users.filter=this.value;Pages._usersPage(document.getElementById('main-content'),null,1)">
+            <select class="filter-select" onchange="State.users.filter=this.value;Pages._usersPage(document.getElementById('main-content'),Auth.getSession(),1)">
               <option value="all" ${State.users.filter==='all'?'selected':''}>All Roles</option>
               <option value="Admin"   ${State.users.filter==='Admin'?'selected':''}>Admin</option>
               <option value="Midwife" ${State.users.filter==='Midwife'?'selected':''}>Midwife</option>
@@ -736,7 +762,6 @@ const Pages = {
       </div>`;
     window._UPg = p => Pages._usersPage(el, session, p);
     if (window.lucide) lucide.createIcons();
-    Audit.log('view', 'User Management', 'Viewed user list');
   },
 
   showCreateUserModal() {
@@ -764,27 +789,32 @@ const Pages = {
       </form>`);
   },
 
-  createUser(e) {
+  async createUser(e) {
     e.preventDefault();
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     const name    = document.getElementById('cu-name').value.trim();
-    const uname   = document.getElementById('cu-uname').value.trim().toLowerCase();
-    const pw      = document.getElementById('cu-pw').value;
+    const username= document.getElementById('cu-uname').value.trim().toLowerCase();
+    const password= document.getElementById('cu-pw').value;
     const role    = document.getElementById('cu-role').value;
     const contact = document.getElementById('cu-contact').value.trim();
-    const users   = Store.arr(STORAGE.USERS);
-    if (users.find(u => u.username === uname)) { UI.toast('Username already exists!', 'error'); return; }
+    
     if (!role) { UI.toast('Please select a role.', 'error'); return; }
-    users.push({ id:uid(), name, username:uname, passwordHash:hashPw(pw), role, contact, status:'Active', createdAt:new Date().toISOString(), lastLogin:null });
-    Store.set(STORAGE.USERS, users);
-    Audit.log('create', `User: ${uname}`, `Created ${role} account for ${name}`);
-    UI.closeModal();
-    UI.toast(`User "${name}" created!`, 'success');
-    Pages._usersPage(document.getElementById('main-content'), Auth.getSession(), 1);
+    
+    try {
+      await API.post('/users', { name, username, password, role, contact, status: 'Active' });
+      UI.closeModal();
+      UI.toast(`User "${name}" created!`, 'success');
+      await Pages._usersPage(document.getElementById('main-content'), Auth.getSession(), 1);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Create User'; }
+    }
   },
 
   showEditUserModal(userId) {
-    const u = Store.arr(STORAGE.USERS).find(u => u.id === userId);
-    if (!u) return;
+    const u = State.cache.users.find(u => u.id === userId);
+    if (!u) { UI.toast('User not found. Please refresh.', 'error'); return; }
     UI.showModal(`
       <div class="modal-header"><h3>Edit User — ${esc(u.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
       <form onsubmit="Pages.updateUser(event,'${userId}')" novalidate>
@@ -809,25 +839,28 @@ const Pages = {
       </form>`);
   },
 
-  updateUser(e, userId) {
+  async updateUser(e, userId) {
     e.preventDefault();
-    const users = Store.arr(STORAGE.USERS);
-    const u = users.find(u => u.id === userId);
-    if (!u) return;
-    const oldRole = u.role;
-    u.name    = document.getElementById('eu-name').value.trim();
-    u.role    = document.getElementById('eu-role').value;
-    u.contact = document.getElementById('eu-contact').value.trim();
-    Store.set(STORAGE.USERS, users);
-    Audit.log('edit', `User: ${u.username}`, `Updated details${oldRole!==u.role?` — role changed to ${u.role}`:''}`);
-    UI.closeModal();
-    UI.toast('User updated!', 'success');
-    Pages._usersPage(document.getElementById('main-content'), Auth.getSession(), State.users.page);
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    const name    = document.getElementById('eu-name').value.trim();
+    const role    = document.getElementById('eu-role').value;
+    const contact = document.getElementById('eu-contact').value.trim();
+    
+    try {
+      await API.put('/users/' + userId, { name, role, contact });
+      UI.closeModal();
+      UI.toast('User updated!', 'success');
+      await Pages._usersPage(document.getElementById('main-content'), Auth.getSession(), State.users.page);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+    }
   },
 
   showResetPwModal(userId) {
-    const u = Store.arr(STORAGE.USERS).find(u => u.id === userId);
-    if (!u) return;
+    const u = State.cache.users.find(u => u.id === userId);
+    if (!u) { UI.toast('User not found. Please refresh.', 'error'); return; }
     UI.showModal(`
       <div class="modal-header"><h3>Reset Password — ${esc(u.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
       <p class="text-muted mb-16">Set a new temporary password for this user.</p>
@@ -841,36 +874,40 @@ const Pages = {
       </form>`);
   },
 
-  resetUserPw(e, userId) {
+  async resetUserPw(e, userId) {
     e.preventDefault();
     const pw = document.getElementById('rp-pw').value;
     const c  = document.getElementById('rp-confirm').value;
     if (pw !== c) { UI.toast('Passwords do not match!', 'error'); return; }
-    const users = Store.arr(STORAGE.USERS);
-    const u = users.find(u => u.id === userId);
-    if (!u) return;
-    u.passwordHash = hashPw(pw);
-    Store.set(STORAGE.USERS, users);
-    Audit.log('edit', `User: ${u.username}`, 'Admin reset user password');
-    UI.closeModal();
-    UI.toast(`Password for "${u.name}" reset.`, 'success');
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    
+    try {
+      await API.put('/users/' + userId + '/reset-password', { newPassword: pw });
+      UI.closeModal();
+      UI.toast('Password reset successfully.', 'success');
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Reset Password'; }
+    }
   },
 
-  toggleUserStatus(userId) {
-    const users = Store.arr(STORAGE.USERS);
-    const u = users.find(u => u.id === userId);
-    if (!u) return;
+  async toggleUserStatus(userId) {
+    const u = State.cache.users.find(u => u.id === userId);
+    if (!u) { UI.toast('User not found. Please refresh.', 'error'); return; }
     const toArchive = u.status === 'Active';
     UI.confirm(
       toArchive ? 'Archive User' : 'Restore User',
       toArchive ? `Archive "${u.name}"? They will no longer be able to log in.`
                 : `Restore "${u.name}"? They will regain access to the system.`,
-      () => {
-        u.status = toArchive ? 'Archived' : 'Active';
-        Store.set(STORAGE.USERS, users);
-        Audit.log('edit', `User: ${u.username}`, toArchive ? 'Archived user account' : 'Restored user account');
-        UI.toast(`"${u.name}" ${toArchive?'archived':'restored'}.`, 'success');
-        Pages._usersPage(document.getElementById('main-content'), Auth.getSession(), State.users.page);
+      async () => {
+        try {
+          await API.put('/users/' + userId, { status: toArchive ? 'Archived' : 'Active' });
+          UI.toast(`"${u.name}" ${toArchive?'archived':'restored'}.`, 'success');
+          await Pages._usersPage(document.getElementById('main-content'), Auth.getSession(), State.users.page);
+        } catch(err) {
+          UI.toast('Error: ' + err.message, 'error');
+        }
       },
       toArchive ? 'danger' : 'warning'
     );
@@ -881,17 +918,29 @@ const Pages = {
   // ──────────────────────────────────────────────────────────────
   adminAudit(el, session) { this._auditPage(el, session, 1); },
 
-  _auditPage(el, session, page) {
+  async _auditPage(el, session, page) {
     State.audit.page = page;
-    let logs = Store.arr(STORAGE.AUDIT);
+    const params = new URLSearchParams({ page, limit: 15 });
+    if (State.audit.search) params.set('search', State.audit.search);
+    if (State.audit.filterAction !== 'all') params.set('action', State.audit.filterAction);
+    if (State.audit.dateFrom) params.set('dateFrom', State.audit.dateFrom);
+    if (State.audit.dateTo) params.set('dateTo', State.audit.dateTo);
 
-    const q = State.audit.search.toLowerCase();
-    if (q) logs = logs.filter(l => l.username.toLowerCase().includes(q) || l.action.toLowerCase().includes(q) || l.target.toLowerCase().includes(q));
-    if (State.audit.filterAction !== 'all') logs = logs.filter(l => l.action === State.audit.filterAction);
-    if (State.audit.dateFrom) logs = logs.filter(l => l.timestamp >= State.audit.dateFrom);
-    if (State.audit.dateTo)   logs = logs.filter(l => l.timestamp.split('T')[0] <= State.audit.dateTo);
+    el.innerHTML = `<div class="page-header"><h1>Audit Logs</h1><p>Complete chronological record of all system actions for accountability.</p></div><div class="page-content"><div style="text-align:center;padding:40px;color:var(--text-secondary);"><i data-lucide="loader"></i> Loading…</div></div>`;
+    if (window.lucide) lucide.createIcons();
 
-    const { items, page:pg, totalPages, total } = UI.paginate(logs, page, 15);
+    let items = [], total = 0, pg = page, totalPages = 1;
+    try {
+      const data = await API.get('/audit?' + params);
+      items = data.logs || [];
+      total = data.total || 0;
+      pg = data.page || page;
+      totalPages = data.pages || 1;
+    } catch(err) {
+      el.innerHTML = `<div class="page-header"><h1>Audit Logs</h1></div><div class="page-content"><div class="alert alert-danger">⚠️ Failed to load audit logs: ${esc(err.message)}</div></div>`;
+      return;
+    }
+
     const actColor = { login:'active', logout:'archived', create:'midwife', edit:'info', view:'admin', archive:'warning', export:'accent', delete:'danger' };
 
     el.innerHTML = `
@@ -913,19 +962,19 @@ const Pages = {
             <div class="search-input-wrapper">
               <span class="search-icon"><i data-lucide="search"></i></span>
               <input type="text" class="search-input" placeholder="Search user, action, or target…" value="${esc(State.audit.search)}"
-                oninput="State.audit.search=this.value;Pages._auditPage(document.getElementById('main-content'),null,1)">
+                oninput="State.audit.search=this.value;Pages._auditPage(document.getElementById('main-content'),Auth.getSession(),1)">
             </div>
-            <select class="filter-select" onchange="State.audit.filterAction=this.value;Pages._auditPage(document.getElementById('main-content'),null,1)">
+            <select class="filter-select" onchange="State.audit.filterAction=this.value;Pages._auditPage(document.getElementById('main-content'),Auth.getSession(),1)">
               <option value="all">All Actions</option>
               ${['login','logout','create','edit','view','archive','export','delete'].map(a =>
                 `<option value="${a}" ${State.audit.filterAction===a?'selected':''}>${a.charAt(0).toUpperCase()+a.slice(1)}</option>`).join('')}
             </select>
             <div class="date-range-wrapper">
               <input type="date" value="${State.audit.dateFrom}" title="From date"
-                onchange="State.audit.dateFrom=this.value;Pages._auditPage(document.getElementById('main-content'),null,1)">
+                onchange="State.audit.dateFrom=this.value;Pages._auditPage(document.getElementById('main-content'),Auth.getSession(),1)">
               <span class="text-muted">to</span>
               <input type="date" value="${State.audit.dateTo}" title="To date"
-                onchange="State.audit.dateTo=this.value;Pages._auditPage(document.getElementById('main-content'),null,1)">
+                onchange="State.audit.dateTo=this.value;Pages._auditPage(document.getElementById('main-content'),Auth.getSession(),1)">
             </div>
           </div>
           <div style="overflow-x:auto;">
@@ -936,7 +985,7 @@ const Pages = {
                   <tr>
                     <td class="text-muted" style="font-size:0.76rem;white-space:nowrap;">${fmtDT(l.timestamp)}</td>
                     <td><strong>${esc(l.username)}</strong></td>
-                    <td><span class="badge badge-${l.role.toLowerCase()}">${l.role}</span></td>
+                    <td><span class="badge badge-${(l.role||'').toLowerCase()}">${l.role}</span></td>
                     <td><span class="badge badge-${actColor[l.action]||'info'}">${l.action}</span></td>
                     <td>${esc(l.target)}</td>
                     <td class="text-muted" style="font-size:0.78rem;">${esc(l.details)}</td>
@@ -952,11 +1001,24 @@ const Pages = {
       </div>`;
     window._APg = p => Pages._auditPage(el, session, p);
     if (window.lucide) lucide.createIcons();
-    Audit.log('view', 'Audit Logs', 'Viewed system audit log');
   },
 
-  exportAuditPDF() {
-    const logs = Store.arr(STORAGE.AUDIT);
+  async exportAuditPDF() {
+    const params = new URLSearchParams({ limit: 10000 });
+    if (State.audit.search) params.set('search', State.audit.search);
+    if (State.audit.filterAction !== 'all') params.set('action', State.audit.filterAction);
+    if (State.audit.dateFrom) params.set('dateFrom', State.audit.dateFrom);
+    if (State.audit.dateTo) params.set('dateTo', State.audit.dateTo);
+
+    let logs = [];
+    try {
+      const data = await API.get('/audit?' + params);
+      logs = data.logs || [];
+    } catch(e) {
+      UI.toast('Failed to fetch logs for export.', 'error');
+      return;
+    }
+    
     const settings = Store.get(STORAGE.SETTINGS)||{};
     if (!window.jspdf) { UI.toast('PDF library not loaded. Check internet connection.', 'error'); return; }
     const { jsPDF } = window.jspdf;
@@ -970,18 +1032,30 @@ const Pages = {
       body: logs.map(l=>[fmtDT(l.timestamp),l.username,l.role,l.action,l.target,l.details]),
     });
     doc.save('bhis-audit-log.pdf');
-    Audit.log('export', 'Audit Log', 'Exported audit log to PDF');
     UI.toast('Audit log exported to PDF!', 'success');
   },
 
-  exportAuditCSV() {
-    const logs = Store.arr(STORAGE.AUDIT);
+  async exportAuditCSV() {
+    const params = new URLSearchParams({ limit: 10000 });
+    if (State.audit.search) params.set('search', State.audit.search);
+    if (State.audit.filterAction !== 'all') params.set('action', State.audit.filterAction);
+    if (State.audit.dateFrom) params.set('dateFrom', State.audit.dateFrom);
+    if (State.audit.dateTo) params.set('dateTo', State.audit.dateTo);
+
+    let logs = [];
+    try {
+      const data = await API.get('/audit?' + params);
+      logs = data.logs || [];
+    } catch(e) {
+      UI.toast('Failed to fetch logs for export.', 'error');
+      return;
+    }
+    
     if (!window.XLSX) { UI.toast('Excel library not loaded.', 'error'); return; }
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(logs.map(l=>({ Timestamp:fmtDT(l.timestamp), Username:l.username, Role:l.role, Action:l.action, Target:l.target, Details:l.details })));
     XLSX.utils.book_append_sheet(wb, ws, 'Audit Log');
     XLSX.writeFile(wb, 'bhis-audit-log.csv');
-    Audit.log('export', 'Audit Log', 'Exported audit log to CSV');
     UI.toast('Audit log exported to CSV!', 'success');
   },
 
@@ -998,18 +1072,21 @@ const Pages = {
       </form>`, { size:'sm' });
   },
 
-  clearOldLogs(e) {
+  async clearOldLogs(e) {
     e.preventDefault();
     const cutoff = document.getElementById('cl-date').value;
-    let logs = Store.arr(STORAGE.AUDIT);
-    const before = logs.length;
-    logs = logs.filter(l => l.timestamp.split('T')[0] >= cutoff);
-    Store.set(STORAGE.AUDIT, logs);
-    const removed = before - logs.length;
-    UI.closeModal();
-    Audit.log('delete', 'Audit Logs', `Cleared ${removed} logs older than ${cutoff}`);
-    UI.toast(`Cleared ${removed} old log entries.`, 'success');
-    Pages._auditPage(document.getElementById('main-content'), Auth.getSession(), 1);
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Clearing…'; }
+    
+    try {
+      const res = await API.delete('/audit/clear', { beforeDate: cutoff });
+      UI.closeModal();
+      UI.toast(res.message || 'Old logs cleared.', 'success');
+      await Pages._auditPage(document.getElementById('main-content'), Auth.getSession(), 1);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Clear Logs'; }
+    }
   },
 
   // ──────────────────────────────────────────────────────────────
@@ -1098,9 +1175,22 @@ const Pages = {
   // ──────────────────────────────────────────────────────────────
   // MIDWIFE DASHBOARD (also used by Admin clinical overview)
   // ──────────────────────────────────────────────────────────────
-  midwifeDashboard(el, session) {
-    const prenatal = Store.arr(STORAGE.PRENATAL).filter(p => !p.archived);
-    const children = Store.arr(STORAGE.CHILDREN).filter(c => !c.archived);
+  async midwifeDashboard(el, session) {
+    el.innerHTML = '<div class="page-content"><div style="text-align:center;padding:40px;"><i data-lucide="loader"></i> Loading Dashboard…</div></div>';
+    if (window.lucide) lucide.createIcons();
+
+    let prenatal = [], children = [];
+    try {
+      const [pRes, cRes] = await Promise.all([
+        API.get('/prenatal?limit=1000'),
+        API.get('/children?limit=1000')
+      ]);
+      prenatal = (pRes.records || []).filter(p => !p.archived);
+      children = (cRes.records || []).filter(c => !c.archived);
+    } catch (err) {
+      el.innerHTML = `<div class="page-content"><div class="alert alert-danger">Error: ${esc(err.message)}</div></div>`;
+      return;
+    }
     const prefix   = session.role === 'Admin' ? 'admin' : 'midwife';
 
     const overdueVisit   = prenatal.filter(p => isPrenatalOverdue(p));
@@ -1171,15 +1261,27 @@ const Pages = {
   // ──────────────────────────────────────────────────────────────
   prenatalPage(el, session, routeKey) { this._prenatalList(el, session, routeKey, 1); },
 
-  _prenatalList(el, session, routeKey, page) {
+  async _prenatalList(el, session, routeKey, page) {
     State.prenatal.page = page;
-    let all = Store.arr(STORAGE.PRENATAL).filter(p => !p.archived);
+    const params = new URLSearchParams({ page, limit: 20 });
+    if (State.prenatal.search) params.set('search', State.prenatal.search);
+    if (State.prenatal.filter !== 'all') params.set('status', State.prenatal.filter);
 
-    const q = State.prenatal.search.toLowerCase();
-    if (q) all = all.filter(p => p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q));
-    if (State.prenatal.filter !== 'all') all = all.filter(p => p.status === State.prenatal.filter);
+    el.innerHTML = `<div class="page-header"><h1>Prenatal Care</h1><p>Register and track prenatal patients, log check-up visits, and record deliveries.</p></div><div class="page-content"><div class="section-header mb-16"><div></div><button class="btn btn-primary" onclick="Pages.showAddPrenatalModal('${routeKey}')"><i data-lucide="plus"></i> Register Patient</button></div><div style="text-align:center;padding:40px;color:var(--text-secondary);"><i data-lucide="loader"></i> Loading…</div></div>`;
+    if (window.lucide) lucide.createIcons();
 
-    const { items, page:pg, totalPages, total } = UI.paginate(all, page);
+    let items = [], total = 0, pg = page, totalPages = 1;
+    try {
+      const data = await API.get('/prenatal?' + params);
+      items = (data.records || []).map(r => ({ ...r, id: String(r._id) }));
+      total = data.total || 0;
+      pg = data.page || page;
+      totalPages = data.pages || 1;
+      State.cache.prenatal = items;
+    } catch(err) {
+      el.innerHTML = `<div class="page-header"><h1>Prenatal Care</h1></div><div class="page-content"><div class="alert alert-danger">⚠️ Failed to load records: ${esc(err.message)}</div></div>`;
+      return;
+    }
 
     el.innerHTML = `
       <div class="page-header">
@@ -1196,9 +1298,9 @@ const Pages = {
             <div class="search-input-wrapper">
               <span class="search-icon"><i data-lucide="search"></i></span>
               <input type="text" class="search-input" placeholder="Search by name or address…" value="${esc(State.prenatal.search)}"
-                oninput="State.prenatal.search=this.value;Pages._prenatalList(document.getElementById('main-content'),null,'${routeKey}',1)">
+                oninput="State.prenatal.search=this.value;Pages._prenatalList(document.getElementById('main-content'),Auth.getSession(),'${routeKey}',1)">
             </div>
-            <select class="filter-select" onchange="State.prenatal.filter=this.value;Pages._prenatalList(document.getElementById('main-content'),null,'${routeKey}',1)">
+            <select class="filter-select" onchange="State.prenatal.filter=this.value;Pages._prenatalList(document.getElementById('main-content'),Auth.getSession(),'${routeKey}',1)">
               <option value="all"       ${State.prenatal.filter==='all'?'selected':''}>All Status</option>
               <option value="Active"    ${State.prenatal.filter==='Active'?'selected':''}>Active</option>
               <option value="High-Risk" ${State.prenatal.filter==='High-Risk'?'selected':''}>High-Risk</option>
@@ -1211,7 +1313,7 @@ const Pages = {
               <tbody>
                 ${items.length ? items.map(p => {
                   const overdue = isPrenatalOverdue(p);
-                  const lastV   = p.visits.length ? [...p.visits].sort((a,b)=>new Date(b.date)-new Date(a.date))[0] : null;
+                  const lastV   = p.visits && p.visits.length ? [...p.visits].sort((a,b)=>new Date(b.date)-new Date(a.date))[0] : null;
                   const statusBadge = overdue
                     ? `<span class="badge badge-overdue">Overdue</span>`
                     : `<span class="badge badge-${p.status==='Active'?'active':p.status==='Delivered'?'delivered':'high-risk'}">${p.status}</span>`;
@@ -1247,7 +1349,6 @@ const Pages = {
       </div>`;
     window._PPg = p => Pages._prenatalList(el, session, routeKey, p);
     if (window.lucide) lucide.createIcons();
-    Audit.log('view', 'Prenatal Records', 'Viewed prenatal patient list');
   },
 
   showAddPrenatalModal(routeKey) {
@@ -1283,11 +1384,12 @@ const Pages = {
     if (lmp && edd && lmp.value) edd.value = calcEDD(lmp.value);
   },
 
-  addPrenatal(e, routeKey) {
+  async addPrenatal(e, routeKey) {
     e.preventDefault();
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     const lmp = document.getElementById('ap-lmp').value;
-    const p = {
-      id: uid(),
+    const data = {
       name:     document.getElementById('ap-name').value.trim(),
       age:      parseInt(document.getElementById('ap-age').value),
       lmp,
@@ -1296,24 +1398,23 @@ const Pages = {
       para:     parseInt(document.getElementById('ap-para').value),
       address:  document.getElementById('ap-address').value.trim(),
       contact:  document.getElementById('ap-contact').value.trim(),
-      status: 'Active', highRisk: false, highRiskNote: '',
-      visits: [], delivery: null,
-      createdBy: Auth.getSession()?.username || 'system',
-      createdAt: new Date().toISOString(), archived: false,
     };
-    const all = Store.arr(STORAGE.PRENATAL);
-    all.push(p);
-    Store.set(STORAGE.PRENATAL, all);
-    Audit.log('create', `Prenatal: ${p.name}`, 'Registered new prenatal patient');
-    UI.closeModal();
-    UI.toast(`Patient "${p.name}" registered!`, 'success');
-    Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, 1);
+    
+    try {
+      await API.post('/prenatal', data);
+      UI.closeModal();
+      UI.toast(`Patient "${data.name}" registered!`, 'success');
+      await Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, 1);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Register Patient'; }
+    }
   },
 
   showPrenatalDetail(patientId, routeKey) {
-    const p = Store.arr(STORAGE.PRENATAL).find(x => x.id === patientId);
-    if (!p) return;
-    const visits = [...p.visits].sort((a,b) => new Date(b.date)-new Date(a.date));
+    const p = State.cache.prenatal.find(x => x.id === patientId);
+    if (!p) { UI.toast('Patient not found.', 'error'); return; }
+    const visits = p.visits && p.visits.length ? [...p.visits].sort((a,b) => new Date(b.date)-new Date(a.date)) : [];
     UI.showModal(`
       <div class="modal-header"><h3>${esc(p.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;font-size:0.84rem;">
@@ -1343,11 +1444,10 @@ const Pages = {
         <div class="alert alert-success">✅ Delivered on ${fmtDate(p.delivery.date)} via ${p.delivery.type} — ${p.delivery.outcome} — Birth weight: ${p.delivery.birthWeight||'—'} kg</div>
       `:''}
     `, { size:'lg' });
-    Audit.log('view', `Prenatal: ${p.name}`, 'Viewed prenatal patient detail');
   },
 
   showEditPrenatalModal(patientId, routeKey) {
-    const p = Store.arr(STORAGE.PRENATAL).find(x => x.id === patientId);
+    const p = State.cache.prenatal.find(x => x.id === patientId);
     if (!p) return;
     UI.showModal(`
       <div class="modal-header"><h3>Edit Patient — ${esc(p.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
@@ -1376,40 +1476,48 @@ const Pages = {
       </form>`);
   },
 
-  updatePrenatal(e, patientId, routeKey) {
+  async updatePrenatal(e, patientId, routeKey) {
     e.preventDefault();
-    const all = Store.arr(STORAGE.PRENATAL);
-    const p = all.find(x => x.id === patientId);
-    if (!p) return;
-    p.name    = document.getElementById('ep-name').value.trim();
-    p.age     = parseInt(document.getElementById('ep-age').value);
-    p.gravida = parseInt(document.getElementById('ep-gravida').value);
-    p.para    = parseInt(document.getElementById('ep-para').value);
-    p.address = document.getElementById('ep-address').value.trim();
-    p.contact = document.getElementById('ep-contact').value.trim();
-    p.status  = document.getElementById('ep-status').value;
-    Store.set(STORAGE.PRENATAL, all);
-    Audit.log('edit', `Prenatal: ${p.name}`, 'Updated prenatal patient record');
-    UI.closeModal();
-    UI.toast('Patient record updated!', 'success');
-    Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    
+    const data = {
+      name:    document.getElementById('ep-name').value.trim(),
+      age:     parseInt(document.getElementById('ep-age').value),
+      gravida: parseInt(document.getElementById('ep-gravida').value),
+      para:    parseInt(document.getElementById('ep-para').value),
+      address: document.getElementById('ep-address').value.trim(),
+      contact: document.getElementById('ep-contact').value.trim(),
+      status:  document.getElementById('ep-status').value,
+    };
+    
+    try {
+      await API.put('/prenatal/' + patientId, data);
+      UI.closeModal();
+      UI.toast('Patient record updated!', 'success');
+      await Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+    }
   },
 
   archivePrenatal(patientId, routeKey) {
-    const all = Store.arr(STORAGE.PRENATAL);
-    const p = all.find(x => x.id === patientId);
+    const p = State.cache.prenatal.find(x => x.id === patientId);
     if (!p) return;
-    UI.confirm('Archive Patient', `Archive "${p.name}"? This will remove them from the active list.`, () => {
-      p.archived = true;
-      Store.set(STORAGE.PRENATAL, all);
-      Audit.log('archive', `Prenatal: ${p.name}`, 'Archived prenatal patient record');
-      UI.toast(`"${p.name}" archived.`, 'success');
-      Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    UI.confirm('Archive Patient', `Archive "${p.name}"? This will remove them from the active list.`, async () => {
+      try {
+        await API.put('/prenatal/' + patientId + '/archive');
+        UI.toast(`"${p.name}" archived.`, 'success');
+        await Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+      } catch(err) {
+        UI.toast('Error: ' + err.message, 'error');
+      }
     });
   },
 
   showLogVisitModal(patientId, routeKey) {
-    const p = Store.arr(STORAGE.PRENATAL).find(x => x.id === patientId);
+    const p = State.cache.prenatal.find(x => x.id === patientId);
     if (!p) return;
     UI.showModal(`
       <div class="modal-header"><h3>Log Prenatal Visit — ${esc(p.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
@@ -1434,13 +1542,12 @@ const Pages = {
       </form>`);
   },
 
-  addVisit(e, patientId, routeKey) {
+  async addVisit(e, patientId, routeKey) {
     e.preventDefault();
-    const all = Store.arr(STORAGE.PRENATAL);
-    const p = all.find(x => x.id === patientId);
-    if (!p) return;
-    p.visits.push({
-      id: uid(),
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    
+    const visitData = {
       date:         document.getElementById('lv-date').value,
       aog:          parseInt(document.getElementById('lv-aog').value),
       bp:           document.getElementById('lv-bp').value.trim(),
@@ -1448,16 +1555,21 @@ const Pages = {
       fundalHeight: parseInt(document.getElementById('lv-fh').value),
       fhr:          parseInt(document.getElementById('lv-fhr').value),
       remarks:      document.getElementById('lv-remarks').value.trim(),
-    });
-    Store.set(STORAGE.PRENATAL, all);
-    Audit.log('create', `Prenatal: ${p.name}`, `Logged prenatal visit on ${document.getElementById('lv-date').value}`);
-    UI.closeModal();
-    UI.toast('Visit logged!', 'success');
-    Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    };
+    
+    try {
+      await API.post('/prenatal/' + patientId + '/visits', visitData);
+      UI.closeModal();
+      UI.toast('Visit logged!', 'success');
+      await Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Save Visit'; }
+    }
   },
 
   showDeliveryModal(patientId, routeKey) {
-    const p = Store.arr(STORAGE.PRENATAL).find(x => x.id === patientId);
+    const p = State.cache.prenatal.find(x => x.id === patientId);
     if (!p) return;
     UI.showModal(`
       <div class="modal-header"><h3>Record Delivery — ${esc(p.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
@@ -1492,37 +1604,41 @@ const Pages = {
       </form>`);
   },
 
-  recordDelivery(e, patientId, routeKey) {
+  async recordDelivery(e, patientId, routeKey) {
     e.preventDefault();
-    const all = Store.arr(STORAGE.PRENATAL);
-    const p = all.find(x => x.id === patientId);
-    if (!p) return;
-    p.delivery = {
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    
+    const delivery = {
       date:        document.getElementById('dl-date').value,
       type:        document.getElementById('dl-type').value,
       outcome:     document.getElementById('dl-outcome').value,
       birthWeight: parseFloat(document.getElementById('dl-bw').value) || null,
     };
-    p.status = 'Delivered';
-    Store.set(STORAGE.PRENATAL, all);
-    Audit.log('edit', `Prenatal: ${p.name}`, `Recorded delivery — ${p.delivery.outcome} on ${p.delivery.date}`);
-    UI.closeModal();
-    UI.toast('Delivery recorded!', 'success');
-    Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    
+    try {
+      await API.put('/prenatal/' + patientId, { delivery, status: 'Delivered' });
+      UI.closeModal();
+      UI.toast('Delivery recorded!', 'success');
+      await Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Record Delivery'; }
+    }
   },
 
   handleHighRisk(patientId, routeKey) {
-    const all = Store.arr(STORAGE.PRENATAL);
-    const p = all.find(x => x.id === patientId);
+    const p = State.cache.prenatal.find(x => x.id === patientId);
     if (!p) return;
     if (p.highRisk) {
-      UI.confirm('Remove High-Risk Tag', `Remove the high-risk classification from "${p.name}"?`, () => {
-        p.highRisk = false; p.highRiskNote = '';
-        if (p.status === 'High-Risk') p.status = 'Active';
-        Store.set(STORAGE.PRENATAL, all);
-        Audit.log('edit', `Prenatal: ${p.name}`, 'Removed high-risk tag');
-        UI.toast('High-risk tag removed.', 'info');
-        Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+      UI.confirm('Remove High-Risk Tag', `Remove the high-risk classification from "${p.name}"?`, async () => {
+        try {
+          await API.put('/prenatal/' + patientId, { highRisk: false, highRiskNote: '', status: p.status === 'High-Risk' ? 'Active' : p.status });
+          UI.toast('High-risk tag removed.', 'info');
+          await Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+        } catch (err) {
+          UI.toast('Error: ' + err.message, 'error');
+        }
       }, 'warning');
     } else {
       UI.showModal(`
@@ -1539,19 +1655,21 @@ const Pages = {
     }
   },
 
-  saveHighRisk(e, patientId, routeKey) {
+  async saveHighRisk(e, patientId, routeKey) {
     e.preventDefault();
-    const all = Store.arr(STORAGE.PRENATAL);
-    const p = all.find(x => x.id === patientId);
-    if (!p) return;
-    p.highRisk = true;
-    p.highRiskNote = document.getElementById('hr-note').value.trim();
-    p.status = 'High-Risk';
-    Store.set(STORAGE.PRENATAL, all);
-    Audit.log('edit', `Prenatal: ${p.name}`, 'Marked patient as high-risk');
-    UI.closeModal();
-    UI.toast('Patient marked as high-risk.', 'warning');
-    Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    
+    try {
+      const hrNote = document.getElementById('hr-note').value.trim();
+      await API.put('/prenatal/' + patientId, { highRisk: true, highRiskNote: hrNote, status: 'High-Risk' });
+      UI.closeModal();
+      UI.toast('Patient marked as high-risk.', 'warning');
+      await Pages._prenatalList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.prenatal.page);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Mark High-Risk'; }
+    }
   },
 
   // ──────────────────────────────────────────────────────────────
@@ -1559,15 +1677,31 @@ const Pages = {
   // ──────────────────────────────────────────────────────────────
   immunizationPage(el, session, routeKey) { this._immList(el, session, routeKey, 1); },
 
-  _immList(el, session, routeKey, page) {
+  async _immList(el, session, routeKey, page) {
     State.children.page = page;
-    let all = Store.arr(STORAGE.CHILDREN).filter(c => !c.archived);
+    const params = new URLSearchParams({ page, limit: 20 });
+    if (State.children.search) params.set('search', State.children.search);
 
-    const q = State.children.search.toLowerCase();
-    if (q) all = all.filter(c => c.name.toLowerCase().includes(q) || c.motherName.toLowerCase().includes(q) || (c.purok||'').toLowerCase().includes(q));
-    if (State.children.filter === 'overdue') all = all.filter(c => Imm.isOverdue(c));
+    el.innerHTML = `<div class="page-header"><h1>Child Immunization</h1><p>Track vaccine schedules and immunization completion for all registered children.</p></div><div class="page-content"><div class="section-header mb-16"><div></div><button class="btn btn-primary" onclick="Pages.showRegisterChildModal('${routeKey}')"><i data-lucide="plus"></i> Register Child</button></div><div style="text-align:center;padding:40px;color:var(--text-secondary);"><i data-lucide="loader"></i> Loading…</div></div>`;
+    if (window.lucide) lucide.createIcons();
 
-    const { items, page:pg, totalPages, total } = UI.paginate(all, page);
+    let items = [], total = 0, pg = page, totalPages = 1;
+    try {
+      const data = await API.get('/children?' + params);
+      items = (data.records || []).map(r => ({ ...r, id: String(r._id) }));
+      
+      if (State.children.filter === 'overdue') {
+        items = items.filter(c => Imm.isOverdue(c));
+      }
+      
+      total = data.total || 0;
+      pg = data.page || page;
+      totalPages = data.pages || 1;
+      State.cache.children = items;
+    } catch(err) {
+      el.innerHTML = `<div class="page-header"><h1>Child Immunization</h1></div><div class="page-content"><div class="alert alert-danger">⚠️ Failed to load records: ${esc(err.message)}</div></div>`;
+      return;
+    }
 
     el.innerHTML = `
       <div class="page-header">
@@ -1584,9 +1718,9 @@ const Pages = {
             <div class="search-input-wrapper">
               <span class="search-icon"><i data-lucide="search"></i></span>
               <input type="text" class="search-input" placeholder="Search name, mother, or purok…" value="${esc(State.children.search)}"
-                oninput="State.children.search=this.value;Pages._immList(document.getElementById('main-content'),null,'${routeKey}',1)">
+                oninput="State.children.search=this.value;Pages._immList(document.getElementById('main-content'),Auth.getSession(),'${routeKey}',1)">
             </div>
-            <select class="filter-select" onchange="State.children.filter=this.value;Pages._immList(document.getElementById('main-content'),null,'${routeKey}',1)">
+            <select class="filter-select" onchange="State.children.filter=this.value;Pages._immList(document.getElementById('main-content'),Auth.getSession(),'${routeKey}',1)">
               <option value="all"     ${State.children.filter==='all'?'selected':''}>All Children</option>
               <option value="overdue" ${State.children.filter==='overdue'?'selected':''}>Overdue Only</option>
             </select>
@@ -1632,7 +1766,6 @@ const Pages = {
       </div>`;
     window._CPg = p => Pages._immList(el, session, routeKey, p);
     if (window.lucide) lucide.createIcons();
-    Audit.log('view', 'Immunization Records', 'Viewed child immunization list');
   },
 
   showRegisterChildModal(routeKey) {
@@ -1662,28 +1795,31 @@ const Pages = {
       </form>`);
   },
 
-  registerChild(e, routeKey) {
+  async registerChild(e, routeKey) {
     e.preventDefault();
-    const c = {
-      id: uid(),
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    const sex = document.getElementById('rc-sex').value;
+    if (!sex) { UI.toast('Please select the child\'s sex.', 'error'); if (btn) btn.disabled = false; return; }
+    
+    const data = {
       name:       document.getElementById('rc-name').value.trim(),
       dob:        document.getElementById('rc-dob').value,
-      sex:        document.getElementById('rc-sex').value,
+      sex,
       motherName: document.getElementById('rc-mother').value.trim(),
       address:    document.getElementById('rc-address').value.trim(),
       purok:      document.getElementById('rc-purok').value.trim(),
-      vaccines: [],
-      createdBy: Auth.getSession()?.username||'system',
-      createdAt: new Date().toISOString(), archived: false,
     };
-    if (!c.sex) { UI.toast('Please select the child\'s sex.', 'error'); return; }
-    const all = Store.arr(STORAGE.CHILDREN);
-    all.push(c);
-    Store.set(STORAGE.CHILDREN, all);
-    Audit.log('create', `Child: ${c.name}`, 'Registered new child for immunization tracking');
-    UI.closeModal();
-    UI.toast(`Child "${c.name}" registered!`, 'success');
-    Pages._immList(document.getElementById('main-content'), Auth.getSession(), routeKey, 1);
+    
+    try {
+      await API.post('/children', data);
+      UI.closeModal();
+      UI.toast(`Child "${data.name}" registered!`, 'success');
+      await Pages._immList(document.getElementById('main-content'), Auth.getSession(), routeKey, 1);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Register Child'; }
+    }
   },
 
   _vaccineScheduleHtml(c) {
@@ -1716,8 +1852,8 @@ const Pages = {
   },
 
   showChildDetail(childId, routeKey) {
-    const c = Store.arr(STORAGE.CHILDREN).find(x => x.id === childId);
-    if (!c) return;
+    const c = State.cache.children.find(x => x.id === childId);
+    if (!c) { UI.toast('Child not found.', 'error'); return; }
     UI.showModal(`
       <div class="modal-header"><h3>${esc(c.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;font-size:0.84rem;">
@@ -1733,11 +1869,10 @@ const Pages = {
       <h4 style="margin-bottom:10px;font-size:0.88rem;color:var(--text-secondary);">VACCINE SCHEDULE</h4>
       ${Pages._vaccineScheduleHtml(c)}
     `, { size:'lg' });
-    Audit.log('view', `Child: ${c.name}`, 'Viewed child vaccine schedule');
   },
 
   showEditChildModal(childId, routeKey) {
-    const c = Store.arr(STORAGE.CHILDREN).find(x => x.id === childId);
+    const c = State.cache.children.find(x => x.id === childId);
     if (!c) return;
     UI.showModal(`
       <div class="modal-header"><h3>Edit Child — ${esc(c.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
@@ -1757,24 +1892,31 @@ const Pages = {
       </form>`);
   },
 
-  updateChild(e, childId, routeKey) {
+  async updateChild(e, childId, routeKey) {
     e.preventDefault();
-    const all = Store.arr(STORAGE.CHILDREN);
-    const c = all.find(x => x.id === childId);
-    if (!c) return;
-    c.name       = document.getElementById('ec-name').value.trim();
-    c.motherName = document.getElementById('ec-mother').value.trim();
-    c.address    = document.getElementById('ec-address').value.trim();
-    c.purok      = document.getElementById('ec-purok').value.trim();
-    Store.set(STORAGE.CHILDREN, all);
-    Audit.log('edit', `Child: ${c.name}`, 'Updated child record');
-    UI.closeModal();
-    UI.toast('Child record updated!', 'success');
-    Pages._immList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.children.page);
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    
+    const data = {
+      name:       document.getElementById('ec-name').value.trim(),
+      motherName: document.getElementById('ec-mother').value.trim(),
+      address:    document.getElementById('ec-address').value.trim(),
+      purok:      document.getElementById('ec-purok').value.trim(),
+    };
+    
+    try {
+      await API.put('/children/' + childId, data);
+      UI.closeModal();
+      UI.toast('Child record updated!', 'success');
+      await Pages._immList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.children.page);
+    } catch(err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+    }
   },
 
   showLogVaccineModal(childId, routeKey) {
-    const c = Store.arr(STORAGE.CHILDREN).find(x => x.id === childId);
+    const c = State.cache.children.find(x => x.id === childId);
     if (!c) return;
     const opts = Imm.nextDoseOptions(c);
     if (!opts.length) { UI.toast('All vaccines are already recorded for this child!', 'info'); return; }
@@ -1795,34 +1937,43 @@ const Pages = {
       </form>`, { size:'sm' });
   },
 
-  addVaccine(e, childId, routeKey) {
+  async addVaccine(e, childId, routeKey) {
     e.preventDefault();
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    
     const val = document.getElementById('lv2-vaccine').value;
-    if (!val) { UI.toast('Please select a vaccine.', 'error'); return; }
+    if (!val) { UI.toast('Please select a vaccine.', 'error'); if(btn) btn.disabled = false; return; }
     const [vaccineId, dose] = val.split('|');
     const dateGiven = document.getElementById('lv2-date').value;
-    const all = Store.arr(STORAGE.CHILDREN);
-    const c = all.find(x => x.id === childId);
-    if (!c) return;
-    c.vaccines.push({ vaccineId, dose: parseInt(dose), dateGiven });
-    Store.set(STORAGE.CHILDREN, all);
-    const vName = VACCINE_SCHEDULE.find(v => v.id === vaccineId)?.name || vaccineId;
-    Audit.log('create', `Child: ${c.name}`, `Logged ${vName} dose ${dose} on ${dateGiven}`);
-    UI.closeModal();
-    UI.toast('Vaccine recorded!', 'success');
-    Pages._immList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.children.page);
+    
+    const c = State.cache.children.find(x => x.id === childId);
+    if (!c) { UI.toast('Child not found.', 'error'); return; }
+    
+    const newVaccines = [...(c.vaccines || []), { vaccineId, dose: parseInt(dose), dateGiven }];
+    
+    try {
+      await API.put('/children/' + childId + '/vaccines', { vaccines: newVaccines });
+      UI.closeModal();
+      UI.toast('Vaccine recorded!', 'success');
+      await Pages._immList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.children.page);
+    } catch (err) {
+      UI.toast('Error: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Log Vaccine'; }
+    }
   },
 
   archiveChild(childId, routeKey) {
-    const all = Store.arr(STORAGE.CHILDREN);
-    const c = all.find(x => x.id === childId);
+    const c = State.cache.children.find(x => x.id === childId);
     if (!c) return;
-    UI.confirm('Archive Child Record', `Archive "${c.name}"'s immunization record? They can be restored if needed.`, () => {
-      c.archived = true;
-      Store.set(STORAGE.CHILDREN, all);
-      Audit.log('archive', `Child: ${c.name}`, 'Archived child immunization record');
-      UI.toast(`"${c.name}" archived.`, 'success');
-      Pages._immList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.children.page);
+    UI.confirm('Archive Child Record', `Archive "${c.name}"'s immunization record? They can be restored if needed.`, async () => {
+      try {
+        await API.put('/children/' + childId, { archived: true });
+        UI.toast(`"${c.name}" archived.`, 'success');
+        await Pages._immList(document.getElementById('main-content'), Auth.getSession(), routeKey, State.children.page);
+      } catch (err) {
+        UI.toast('Error: ' + err.message, 'error');
+      }
     });
   },
 
@@ -1831,10 +1982,27 @@ const Pages = {
   // ──────────────────────────────────────────────────────────────
   reportsPage(el, session, routeKey) { this._reportsPage(el, session, routeKey, State.reports.tab); },
 
-  _reportsPage(el, session, routeKey, tab) {
+  async _reportsPage(el, session, routeKey, tab) {
     State.reports.tab = tab;
-    const reports  = Store.arr(STORAGE.REPORTS);
-    const scanned  = Store.arr(STORAGE.SCANNED);
+    el.innerHTML = '<div class="page-content"><div style="text-align:center;padding:40px;"><i data-lucide="loader"></i> Loading Reports…</div></div>';
+    if (window.lucide) lucide.createIcons();
+
+    let reports = [], scanned = [];
+    try {
+      if (tab === 'history') {
+        const data = await API.get('/reports?type=generated');
+        reports = (data.reports || []).map(r => ({ ...r, id: String(r._id) }));
+      } else if (tab === 'scanned') {
+        const data = await API.get('/reports?type=scanned');
+        scanned = (data.reports || []).map(r => ({ ...r, id: String(r._id) }));
+      }
+      State.cache.reports = reports;
+      State.cache.scanned = scanned;
+    } catch(err) {
+      el.innerHTML = `<div class="page-content"><div class="alert alert-danger">Error: ${esc(err.message)}</div></div>`;
+      return;
+    }
+
     const now = new Date();
     const curMonth = String(now.getMonth()+1).padStart(2,'0');
     const curYear  = String(now.getFullYear());
@@ -1847,8 +2015,8 @@ const Pages = {
       <div class="page-content">
         <div class="tabs">
           <button class="tab-btn ${tab==='generate'?'active':''}" onclick="Pages._reportsPage(document.getElementById('main-content'),null,'${routeKey}','generate')">Generate Report</button>
-          <button class="tab-btn ${tab==='history'?'active':''}"  onclick="Pages._reportsPage(document.getElementById('main-content'),null,'${routeKey}','history')">Report History (${reports.length})</button>
-          <button class="tab-btn ${tab==='scanned'?'active':''}"  onclick="Pages._reportsPage(document.getElementById('main-content'),null,'${routeKey}','scanned')">📷 Scanned Reports (${scanned.length})</button>
+          <button class="tab-btn ${tab==='history'?'active':''}"  onclick="Pages._reportsPage(document.getElementById('main-content'),null,'${routeKey}','history')">Report History</button>
+          <button class="tab-btn ${tab==='scanned'?'active':''}"  onclick="Pages._reportsPage(document.getElementById('main-content'),null,'${routeKey}','scanned')">📷 Scanned Reports</button>
         </div>
         ${tab==='generate' ? `
           <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start;">
@@ -1876,7 +2044,7 @@ const Pages = {
                 </select>
               </div>
               <div style="margin-top:4px;">
-                <button class="btn btn-primary" onclick="Pages.generateReport('${routeKey}')"><i data-lucide="file-bar-chart"></i> Generate & Preview</button>
+                <button class="btn btn-primary" onclick="Pages.generateReport('${routeKey}', this)"><i data-lucide="file-bar-chart"></i> Generate & Preview</button>
               </div>
             </div>
             <div id="rpt-preview-area" style="flex:1;min-width:300px;"></div>
@@ -1892,8 +2060,8 @@ const Pages = {
               ${scanned.map(r=>`<tr>
                 <td><strong>${esc(r.title)}</strong></td>
                 <td><span class="badge badge-info">${esc(r.docType||'Report')}</span></td>
-                <td>${esc(r.uploadedBy)}</td>
-                <td class="text-muted">${fmtDT(r.uploadedAt)}</td>
+                <td>${esc(r.uploadedBy || r.generatedBy || 'system')}</td>
+                <td class="text-muted">${fmtDT(r.createdAt)}</td>
                 <td><div style="display:flex;gap:6px;">
                   <button class="btn btn-outline btn-sm" onclick="Pages.viewScannedReport('${r.id}')">View</button>
                   <button class="btn btn-danger btn-sm" onclick="Pages.deleteScannedReport('${r.id}','${routeKey}')">Delete</button>
@@ -1906,10 +2074,10 @@ const Pages = {
             <thead><tr><th>Report Type</th><th>Period</th><th>Generated By</th><th>Date Generated</th><th>Actions</th></tr></thead>
             <tbody>
               ${reports.map(r=>`<tr>
-                <td><span class="badge badge-${r.type==='prenatal'?'prenatal':'immunization'}">${r.type==='prenatal'?'Prenatal':'Immunization'}</span></td>
-                <td><strong>${esc(r.period)}</strong></td>
+                <td><span class="badge badge-${r.program?.toLowerCase()==='prenatal'?'prenatal':'immunization'}">${r.program}</span></td>
+                <td><strong>${esc(r.title)}</strong></td>
                 <td>${esc(r.generatedBy)}</td>
-                <td class="text-muted">${fmtDT(r.generatedAt)}</td>
+                <td class="text-muted">${fmtDT(r.createdAt)}</td>
                 <td><div style="display:flex;gap:6px;">
                   <button class="btn btn-outline btn-sm" onclick="Pages.previewReport('${r.id}')">Preview</button>
                   <button class="btn btn-outline btn-sm" onclick="Pages.exportRptPDF('${r.id}')">PDF</button>
@@ -1923,98 +2091,113 @@ const Pages = {
     if (window.lucide) lucide.createIcons();
   },
 
-  generateReport(routeKey) {
+  async generateReport(routeKey, btn) {
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i data-lucide="loader"></i> Generating...'; }
     const month   = document.getElementById('rpt-month').value;
     const year    = document.getElementById('rpt-year').value;
     const type    = document.getElementById('rpt-type').value;
-    const settings= Store.get(STORAGE.SETTINGS)||{};
+    const settings= State.cache.settings || {}; // Should be fetched from API in real implementation, placeholder for now
     const period  = `${monthName(parseInt(month))} ${year}`;
     const prefix  = `${year}-${month}`;
 
     let tableHtml = '';
-    if (type === 'prenatal') {
-      const patients = Store.arr(STORAGE.PRENATAL).filter(p => !p.archived);
-      const subset   = patients.filter(p => {
-        const hasVisit = p.visits.some(v => v.date.startsWith(prefix));
-        const created  = p.createdAt.startsWith(prefix);
-        return hasVisit || created;
-      });
-      tableHtml = `
-        <h2 style="text-align:center;font-size:1rem;">${settings.healthCenterName||'Health Center'}</h2>
-        <h3 style="text-align:center;font-size:0.9rem;">Prenatal Care Monthly Report — ${period}</h3>
-        <p style="text-align:center;font-size:0.78rem;margin-bottom:10px;">${settings.barangayName||''}, ${settings.municipality||''} · Contact: ${settings.contact||''}</p>
-        <table>
-          <thead><tr><th>#</th><th>Patient Name</th><th>Age</th><th>AOG (wks)</th><th>Status</th><th>Visits This Month</th><th>High-Risk</th></tr></thead>
-          <tbody>
-            ${subset.map((p,i)=>`<tr>
-              <td>${i+1}</td><td>${p.name}</td><td>${p.age}</td><td>${calcAOG(p.lmp)}</td><td>${p.status}</td>
-              <td>${p.visits.filter(v=>v.date.startsWith(prefix)).length}</td><td>${p.highRisk?'Yes':'No'}</td>
-            </tr>`).join('')}
-            <tr><td colspan="5"><strong>TOTAL PATIENTS</strong></td><td colspan="2"><strong>${subset.length}</strong></td></tr>
-          </tbody>
-        </table>
-        <p style="font-size:0.7rem;margin-top:8px;">Generated: ${new Date().toLocaleString('en-PH')}</p>`;
-    } else {
-      const children = Store.arr(STORAGE.CHILDREN).filter(c => !c.archived);
-      const subset   = children.filter(c => c.vaccines.some(v => v.dateGiven.startsWith(prefix)));
-      tableHtml = `
-        <h2 style="text-align:center;font-size:1rem;">${settings.healthCenterName||'Health Center'}</h2>
-        <h3 style="text-align:center;font-size:0.9rem;">Child Immunization Monthly Report — ${period}</h3>
-        <p style="text-align:center;font-size:0.78rem;margin-bottom:10px;">${settings.barangayName||''}, ${settings.municipality||''} · Contact: ${settings.contact||''}</p>
-        <table>
-          <thead><tr><th>#</th><th>Child Name</th><th>DOB</th><th>Mother</th><th>Vaccines Given This Month</th><th>Completion %</th></tr></thead>
-          <tbody>
-            ${subset.map((c,i)=>{
-              const vaccines = c.vaccines.filter(v=>v.dateGiven.startsWith(prefix)).map(v=>{
-                const s = VACCINE_SCHEDULE.find(x=>x.id===v.vaccineId);
-                return `${s?.name||v.vaccineId} D${v.dose}`;
-              }).join(', ');
-              return `<tr><td>${i+1}</td><td>${c.name}</td><td>${fmtDate(c.dob)}</td><td>${c.motherName}</td><td>${vaccines}</td><td>${Imm.completion(c)}%</td></tr>`;
-            }).join('')}
-            <tr><td colspan="4"><strong>TOTAL CHILDREN</strong></td><td colspan="2"><strong>${subset.length}</strong></td></tr>
-          </tbody>
-        </table>
-        <p style="font-size:0.7rem;margin-top:8px;">Generated: ${new Date().toLocaleString('en-PH')}</p>`;
-    }
+    try {
+      if (type === 'prenatal') {
+        const data = await API.get('/prenatal?limit=1000&archived=false');
+        const patients = data.records || [];
+        const subset   = patients.filter(p => {
+          const hasVisit = (p.visits || []).some(v => v.date.startsWith(prefix));
+          const created  = String(p.createdAt || '').startsWith(prefix);
+          return hasVisit || created;
+        });
+        tableHtml = `
+          <h2 style="text-align:center;font-size:1rem;">${settings.healthCenterName||'Health Center'}</h2>
+          <h3 style="text-align:center;font-size:0.9rem;">Prenatal Care Monthly Report — ${period}</h3>
+          <p style="text-align:center;font-size:0.78rem;margin-bottom:10px;">${settings.barangayName||''}, ${settings.municipality||''} · Contact: ${settings.contact||''}</p>
+          <table>
+            <thead><tr><th>#</th><th>Patient Name</th><th>Age</th><th>AOG (wks)</th><th>Status</th><th>Visits This Month</th><th>High-Risk</th></tr></thead>
+            <tbody>
+              ${subset.map((p,i)=>`<tr>
+                <td>${i+1}</td><td>${p.name}</td><td>${p.age}</td><td>${calcAOG(p.lmp)}</td><td>${p.status}</td>
+                <td>${(p.visits||[]).filter(v=>v.date.startsWith(prefix)).length}</td><td>${p.highRisk?'Yes':'No'}</td>
+              </tr>`).join('')}
+              <tr><td colspan="5"><strong>TOTAL PATIENTS</strong></td><td colspan="2"><strong>${subset.length}</strong></td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:0.7rem;margin-top:8px;">Generated: ${new Date().toLocaleString('en-PH')}</p>`;
+      } else {
+        const data = await API.get('/children?limit=1000&archived=false');
+        const children = data.records || [];
+        const subset   = children.filter(c => (c.vaccines || []).some(v => v.dateGiven.startsWith(prefix)));
+        tableHtml = `
+          <h2 style="text-align:center;font-size:1rem;">${settings.healthCenterName||'Health Center'}</h2>
+          <h3 style="text-align:center;font-size:0.9rem;">Child Immunization Monthly Report — ${period}</h3>
+          <p style="text-align:center;font-size:0.78rem;margin-bottom:10px;">${settings.barangayName||''}, ${settings.municipality||''} · Contact: ${settings.contact||''}</p>
+          <table>
+            <thead><tr><th>#</th><th>Child Name</th><th>DOB</th><th>Mother</th><th>Vaccines Given This Month</th><th>Completion %</th></tr></thead>
+            <tbody>
+              ${subset.map((c,i)=>{
+                const vaccines = c.vaccines.filter(v=>v.dateGiven.startsWith(prefix)).map(v=>{
+                  const s = VACCINE_SCHEDULE.find(x=>x.id===v.vaccineId);
+                  return `${s?.name||v.vaccineId} D${v.dose}`;
+                }).join(', ');
+                return `<tr><td>${i+1}</td><td>${c.name}</td><td>${fmtDate(c.dob)}</td><td>${c.motherName}</td><td>${vaccines}</td><td>${Imm.completion(c)}%</td></tr>`;
+              }).join('')}
+              <tr><td colspan="4"><strong>TOTAL CHILDREN</strong></td><td colspan="2"><strong>${subset.length}</strong></td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:0.7rem;margin-top:8px;">Generated: ${new Date().toLocaleString('en-PH')}</p>`;
+      }
 
-    // Save report
-    const session = Auth.getSession();
-    const saved = { id:uid(), type, period, tableHtml, generatedBy:session?.username||'system', generatedAt:new Date().toISOString() };
-    const reports = Store.arr(STORAGE.REPORTS);
-    reports.unshift(saved);
-    Store.set(STORAGE.REPORTS, reports);
-    Audit.log('create', `Report: ${type} ${period}`, 'Generated monthly FHSIS report');
+      const postData = {
+        type: 'generated',
+        title: period,
+        program: type === 'prenatal' ? 'Prenatal' : 'Immunization',
+        month: parseInt(month),
+        year: parseInt(year),
+        dataSnapshot: { tableHtml }
+      };
 
-    // Show preview
-    const area = document.getElementById('rpt-preview-area');
-    if (area) {
-      area.innerHTML = `
-        <div class="card">
-          <div class="section-header">
-            <span class="section-title">Preview — ${esc(period)}</span>
-            <div style="display:flex;gap:6px;">
-              <button class="btn btn-outline btn-sm" onclick="Pages.exportRptPDF('${saved.id}')"><i data-lucide="file-text"></i> PDF</button>
-              <button class="btn btn-outline btn-sm" onclick="Pages.exportRptExcel('${saved.id}')"><i data-lucide="table-2"></i> Excel</button>
+      const res = await API.post('/reports', postData);
+      const saved = res.report;
+      saved.id = String(saved._id);
+      if (!State.cache.reports) State.cache.reports = [];
+      State.cache.reports.unshift(saved);
+
+      const area = document.getElementById('rpt-preview-area');
+      if (area) {
+        area.innerHTML = `
+          <div class="card">
+            <div class="section-header">
+              <span class="section-title">Preview — ${esc(period)}</span>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-outline btn-sm" onclick="Pages.exportRptPDF('${saved.id}')"><i data-lucide="file-text"></i> PDF</button>
+                <button class="btn btn-outline btn-sm" onclick="Pages.exportRptExcel('${saved.id}')"><i data-lucide="table-2"></i> Excel</button>
+              </div>
             </div>
-          </div>
-          <div class="report-preview">${tableHtml}</div>
-        </div>`;
-      if (window.lucide) lucide.createIcons();
+            <div class="report-preview">${tableHtml}</div>
+          </div>`;
+        if (window.lucide) lucide.createIcons();
+      }
+      UI.toast('Report generated!', 'success');
+    } catch(err) {
+      UI.toast('Error generating report: ' + err.message, 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i data-lucide="file-bar-chart"></i> Generate & Preview'; }
     }
-    UI.toast('Report generated!', 'success');
   },
 
   previewReport(reportId) {
-    const r = Store.arr(STORAGE.REPORTS).find(x => x.id === reportId);
+    const r = State.cache.reports.find(x => x.id === reportId);
     if (!r) return;
+    const tableHtml = r.dataSnapshot?.tableHtml || '<p>Report data not available.</p>';
     UI.showModal(`
-      <div class="modal-header"><h3>${r.type==='prenatal'?'Prenatal':'Immunization'} Report — ${esc(r.period)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
-      <div class="report-preview">${r.tableHtml}</div>
+      <div class="modal-header"><h3>${r.program} Report — ${esc(r.title)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
+      <div class="report-preview">${tableHtml}</div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="Pages.exportRptPDF('${r.id}')">Export PDF</button>
         <button class="btn btn-primary" onclick="Pages.exportRptExcel('${r.id}')">Export Excel</button>
       </div>`, { size:'lg' });
-    Audit.log('view', `Report: ${r.type} ${r.period}`, 'Previewed saved report');
   },
 
   _parseReportTable(html) {
@@ -2025,16 +2208,17 @@ const Pages = {
   },
 
   exportRptPDF(reportId) {
-    const r = Store.arr(STORAGE.REPORTS).find(x => x.id === reportId);
+    const r = State.cache.reports.find(x => x.id === reportId);
     if (!r) return;
     if (!window.jspdf) { UI.toast('PDF library not loaded.', 'error'); return; }
-    const settings = Store.get(STORAGE.SETTINGS)||{};
+    const settings = State.cache.settings || {};
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const { hdr, bdy } = Pages._parseReportTable(r.tableHtml);
+    const tableHtml = r.dataSnapshot?.tableHtml || '';
+    const { hdr, bdy } = Pages._parseReportTable(tableHtml);
     doc.setFontSize(11); doc.text(settings.healthCenterName||'Health Center', 14, 14);
     doc.setFontSize(9);
-    doc.text(`${r.type==='prenatal'?'Prenatal Care':'Child Immunization'} Report — ${r.period}`, 14, 21);
+    doc.text(`${r.program} Report — ${r.title}`, 14, 21);
     doc.text(`${settings.barangayName||''}, ${settings.municipality||''}`, 14, 28);
     doc.autoTable({
       startY:33, styles:{fontSize:8.5},
@@ -2047,21 +2231,21 @@ const Pages = {
       doc.setFontSize(8);
       doc.text(`Page ${i} of ${pageCount} | Generated: ${new Date().toLocaleDateString('en-PH')}`, 14, doc.internal.pageSize.getHeight()-8);
     }
-    doc.save(`bhis-${r.type}-${r.period.replace(/ /g,'-')}.pdf`);
-    Audit.log('export', `Report: ${r.type} ${r.period}`, 'Exported report to PDF');
+    doc.save(`bhis-${r.program.toLowerCase()}-${r.title.replace(/ /g,'-')}.pdf`);
     UI.toast('Report exported to PDF!', 'success');
   },
 
   exportRptExcel(reportId) {
-    const r = Store.arr(STORAGE.REPORTS).find(x => x.id === reportId);
+    const r = State.cache.reports.find(x => x.id === reportId);
     if (!r) return;
     if (!window.XLSX) { UI.toast('Excel library not loaded.', 'error'); return; }
-    const settings = Store.get(STORAGE.SETTINGS)||{};
-    const { hdr, bdy } = Pages._parseReportTable(r.tableHtml);
+    const settings = State.cache.settings || {};
+    const tableHtml = r.dataSnapshot?.tableHtml || '';
+    const { hdr, bdy } = Pages._parseReportTable(tableHtml);
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([
-      [`${settings.healthCenterName||'Health Center'} — ${r.type==='prenatal'?'Prenatal Care':'Child Immunization'} Report`],
-      [`Period: ${r.period}`],
+      [`${settings.healthCenterName||'Health Center'} — ${r.program} Report`],
+      [`Period: ${r.title}`],
       [`Barangay: ${settings.barangayName||''}, ${settings.municipality||''}`],
       [`Contact: ${settings.contact||''}`],
       [],
@@ -2069,8 +2253,7 @@ const Pages = {
       ...bdy,
     ]);
     XLSX.utils.book_append_sheet(wb, ws, 'Report');
-    XLSX.writeFile(wb, `bhis-${r.type}-${r.period.replace(/ /g,'-')}.xlsx`);
-    Audit.log('export', `Report: ${r.type} ${r.period}`, 'Exported report to Excel');
+    XLSX.writeFile(wb, `bhis-${r.program.toLowerCase()}-${r.title.replace(/ /g,'-')}.xlsx`);
     UI.toast('Report exported to Excel!', 'success');
   },
 
@@ -2115,53 +2298,60 @@ const Pages = {
     if (window.lucide) lucide.createIcons();
   },
 
-  changeUsername(e) {
+  async changeUsername(e) {
     e.preventDefault();
     const newUname = document.getElementById('un-new').value.trim().toLowerCase();
     const pw       = document.getElementById('un-pw').value;
     if (!newUname) { UI.toast('Please enter a new username.', 'error'); return; }
-    const s = Auth.getSession();
-    if (!s) return;
-    const users = Store.arr(STORAGE.USERS);
-    const u = users.find(x => x.id === s.userId);
-    if (!u) return;
-    if (u.passwordHash !== hashPw(pw)) { UI.toast('Current password is incorrect.', 'error'); return; }
-    if (users.find(x => x.username === newUname && x.id !== u.id)) { UI.toast('That username is already taken.', 'error'); return; }
-    const oldUname = u.username;
-    u.username = newUname;
-    Store.set(STORAGE.USERS, users);
-    // Update session
-    const sess = Store.get(STORAGE.SESSION);
-    if (sess) { sess.username = newUname; Store.set(STORAGE.SESSION, sess); }
-    Audit.log('edit', `User: ${oldUname}`, `Changed username to ${newUname}`);
-    UI.toast('Username updated! Please remember your new username.', 'success');
-    document.getElementById('un-new').value = '';
-    document.getElementById('un-pw').value = '';
-    // Refresh sidebar to show new username
-    UI.renderSidebar(Auth.getSession());
+    try {
+      await API.put(`/auth/change-username`, { newUsername: newUname, password: pw });
+      // Update session locally
+      const sess = Auth.getSession();
+      if (sess) { sess.username = newUname; Store.set(STORAGE.SESSION, sess); }
+      UI.toast('Username updated! Please remember your new username.', 'success');
+      document.getElementById('un-new').value = '';
+      document.getElementById('un-pw').value = '';
+      UI.renderSidebar(Auth.getSession());
+    } catch (err) {
+      UI.toast(err.message, 'error');
+    }
   },
 
-  changePw(e) {
+  async changePw(e) {
     e.preventDefault();
     const old  = document.getElementById('pw-old').value;
     const nw   = document.getElementById('pw-new').value;
     const conf = document.getElementById('pw-conf').value;
     if (nw !== conf) { UI.toast('Passwords do not match!', 'error'); return; }
-    if (Auth.changePw(old, nw)) {
+    if (nw.length < 6) { UI.toast('Password must be at least 6 characters.', 'error'); return; }
+    try {
+      await API.put(`/auth/change-password`, { currentPassword: old, newPassword: nw });
       UI.toast('Password updated successfully!', 'success');
       document.getElementById('pw-old').value = '';
       document.getElementById('pw-new').value = '';
       document.getElementById('pw-conf').value = '';
-    } else {
-      UI.toast('Current password is incorrect.', 'error');
+    } catch (err) {
+      UI.toast(err.message, 'error');
     }
   },
 
   // ──────────────────────────────────────────────────────────────
   // BHW DASHBOARD
   // ──────────────────────────────────────────────────────────────
-  bhwDashboard(el, session) {
-    const children = Store.arr(STORAGE.CHILDREN).filter(c => !c.archived);
+  async bhwDashboard(el, session) {
+    el.innerHTML = '<div class="page-content"><div style="text-align:center;padding:40px;"><i data-lucide="loader"></i> Loading Dashboard…</div></div>';
+    if (window.lucide) lucide.createIcons();
+    
+    let children = [];
+    try {
+      const data = await API.get('/children?limit=1000');
+      children = (data.records || []).map(r => ({ ...r, id: String(r._id) }));
+      State.cache.children = children;
+    } catch (err) {
+      el.innerHTML = `<div class="page-content"><div class="alert alert-danger">Error loading dashboard: ${esc(err.message)}</div></div>`;
+      return;
+    }
+    
     const overdueC = children.filter(c => Imm.isOverdue(c));
     const dueC     = children.filter(c => Imm.scheduleRows(c).some(r => r.status==='due'));
 
@@ -2213,7 +2403,7 @@ const Pages = {
           </table></div>` : '<div class="empty-state"><p>No overdue vaccines! 🎉 Great community coverage.</p></div>'}
         </div>
       </div>`;
-    Audit.log('view', 'BHW Dashboard', 'Viewed BHW dashboard');
+    if (window.lucide) lucide.createIcons();
   },
 
   // ──────────────────────────────────────────────────────────────
@@ -2221,12 +2411,25 @@ const Pages = {
   // ──────────────────────────────────────────────────────────────
   bhwChildren(el, session) { this._bhwChildrenList(el, session, 1); },
 
-  _bhwChildrenList(el, session, page) {
-    let all = Store.arr(STORAGE.CHILDREN).filter(c => !c.archived);
-    const q = (State.children.search||'').toLowerCase();
-    if (q) all = all.filter(c => c.name.toLowerCase().includes(q) || c.motherName.toLowerCase().includes(q) || (c.purok||'').toLowerCase().includes(q));
+  async _bhwChildrenList(el, session, page) {
+    const params = new URLSearchParams({ page, limit: 20 });
+    if (State.children.search) params.set('search', State.children.search);
 
-    const { items, page:pg, totalPages, total } = UI.paginate(all, page);
+    el.innerHTML = '<div class="page-content"><div style="text-align:center;padding:40px;"><i data-lucide="loader"></i> Loading Children…</div></div>';
+    if (window.lucide) lucide.createIcons();
+
+    let items = [], total = 0, pg = page, totalPages = 1;
+    try {
+      const data = await API.get('/children?' + params);
+      items = (data.records || []).map(r => ({ ...r, id: String(r._id) }));
+      total = data.total || 0;
+      pg = data.page || page;
+      totalPages = data.pages || 1;
+      State.cache.children = items;
+    } catch (err) {
+      el.innerHTML = `<div class="page-content"><div class="alert alert-danger">Error: ${esc(err.message)}</div></div>`;
+      return;
+    }
 
     el.innerHTML = `
       <div class="page-header">
@@ -2272,11 +2475,10 @@ const Pages = {
       </div>`;
     window._BPg = p => Pages._bhwChildrenList(el, session, p);
     if (window.lucide) lucide.createIcons();
-    Audit.log('view', 'Children List (BHW)', 'BHW searched child immunization records');
   },
 
   bhwViewSchedule(childId) {
-    const c = Store.arr(STORAGE.CHILDREN).find(x => x.id === childId);
+    const c = State.cache.children.find(x => x.id === childId);
     if (!c) return;
     UI.showModal(`
       <div class="modal-header"><h3>Vaccine Schedule — ${esc(c.name)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
@@ -2290,19 +2492,31 @@ const Pages = {
       ${Pages._vaccineScheduleHtml(c)}
       <p class="text-muted mt-16" style="font-size:0.78rem;text-align:center;">Read-only view · To record vaccines, contact the Midwife</p>
     `, { size:'lg' });
-    Audit.log('view', `Child: ${c.name}`, 'BHW viewed vaccine schedule');
   },
   // ──────────────────────────────────────────────────────────────
   // BHW: VIEW PRENATAL RECORDS (read-only)
   // ──────────────────────────────────────────────────────────────
   bhwPrenatal(el, session) { this._bhwPrenatalList(el, session, 1); },
 
-  _bhwPrenatalList(el, session, page) {
-    let all = Store.arr(STORAGE.PRENATAL).filter(p => !p.archived && p.status !== 'Delivered');
-    const q = (State.prenatal.search || '').toLowerCase();
-    if (q) all = all.filter(p => p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q));
+  async _bhwPrenatalList(el, session, page) {
+    const params = new URLSearchParams({ page, limit: 20 });
+    if (State.prenatal.search) params.set('search', State.prenatal.search);
 
-    const { items, page:pg, totalPages, total } = UI.paginate(all, page);
+    el.innerHTML = '<div class="page-content"><div style="text-align:center;padding:40px;"><i data-lucide="loader"></i> Loading Prenatal Records…</div></div>';
+    if (window.lucide) lucide.createIcons();
+
+    let items = [], total = 0, pg = page, totalPages = 1;
+    try {
+      const data = await API.get('/prenatal?' + params);
+      items = (data.records || []).map(r => ({ ...r, id: String(r._id) })).filter(p => p.status !== 'Delivered');
+      total = data.total || 0;
+      pg = data.page || page;
+      totalPages = data.pages || 1;
+      State.cache.prenatal = items;
+    } catch(err) {
+      el.innerHTML = `<div class="page-content"><div class="alert alert-danger">Error: ${esc(err.message)}</div></div>`;
+      return;
+    }
 
     el.innerHTML = `
       <div class="page-header">
@@ -2353,11 +2567,10 @@ const Pages = {
       </div>`;
     window._BPPg = p => Pages._bhwPrenatalList(el, session, p);
     if (window.lucide) lucide.createIcons();
-    Audit.log('view', 'Prenatal Records (BHW)', 'BHW viewed prenatal patient list');
   },
 
   bhwViewPrenatalDetail(patientId) {
-    const p = Store.arr(STORAGE.PRENATAL).find(x => x.id === patientId);
+    const p = State.cache.prenatal.find(x => x.id === patientId);
     if (!p) return;
     const visits = [...p.visits].sort((a,b) => new Date(b.date)-new Date(a.date));
     UI.showModal(`
@@ -2381,7 +2594,6 @@ const Pages = {
       </table></div>`:'<p class="text-muted">No visits recorded yet.</p>'}
       <p class="text-muted mt-16" style="font-size:0.78rem;text-align:center;">Read-only view · To update records, contact the Midwife</p>
     `, { size:'lg' });
-    Audit.log('view', `Prenatal: ${p.name}`, 'BHW viewed prenatal patient detail');
   },
 
   // ──────────────────────────────────────────────────────────────
@@ -2413,60 +2625,64 @@ const Pages = {
 
   saveScannedReport(e, routeKey) {
     e.preventDefault();
+    const btn = e.target.querySelector('[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Uploading...'; }
     const title   = document.getElementById('sr-title').value.trim();
     const docType = document.getElementById('sr-type').value;
     const file    = document.getElementById('sr-file').files[0];
-    if (!file) { UI.toast('Please select a file to upload.', 'error'); return; }
-    if (file.size > 10 * 1024 * 1024) { UI.toast('File is too large. Maximum size is 10 MB.', 'error'); return; }
+    if (!file) { UI.toast('Please select a file to upload.', 'error'); if(btn) btn.disabled=false; return; }
+    if (file.size > 10 * 1024 * 1024) { UI.toast('File is too large. Maximum size is 10 MB.', 'error'); if(btn) btn.disabled=false; return; }
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      const session = Auth.getSession();
-      const record = {
-        id: uid(),
+    reader.onload = async (ev) => {
+      const data = {
+        type: 'scanned',
         title,
         docType,
         fileType: file.type,
         fileName: file.name,
         dataUrl: ev.target.result,
-        uploadedBy: session?.username || 'system',
-        uploadedAt: new Date().toISOString(),
       };
-      const all = Store.arr(STORAGE.SCANNED);
-      all.unshift(record);
-      Store.set(STORAGE.SCANNED, all);
-      Audit.log('create', `Scanned Report: ${title}`, `Uploaded scanned/handwritten report (${docType})`);
-      UI.closeModal();
-      UI.toast(`Report "${title}" uploaded!`, 'success');
-      Pages._reportsPage(document.getElementById('main-content'), Auth.getSession(), routeKey, 'scanned');
+      try {
+        await API.post('/reports', data);
+        UI.closeModal();
+        UI.toast(`Report "${title}" uploaded!`, 'success');
+        await Pages._reportsPage(document.getElementById('main-content'), Auth.getSession(), routeKey, 'scanned');
+      } catch (err) {
+        UI.toast('Error: ' + err.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Upload Report'; }
+      }
     };
-    reader.onerror = () => UI.toast('Failed to read file. Please try again.', 'error');
+    reader.onerror = () => {
+      UI.toast('Failed to read file. Please try again.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Upload Report'; }
+    };
     reader.readAsDataURL(file);
   },
 
   viewScannedReport(reportId) {
-    const r = Store.arr(STORAGE.SCANNED).find(x => x.id === reportId);
+    const r = State.cache.scanned.find(x => x.id === reportId);
     if (!r) return;
     const isImg = r.fileType && r.fileType.startsWith('image/');
     UI.showModal(`
       <div class="modal-header"><h3>${esc(r.title)}</h3><button class="modal-close" onclick="UI.closeModal()"><i data-lucide="x"></i></button></div>
-      <p class="text-muted" style="font-size:0.8rem;margin-bottom:12px;"><span class="badge badge-info">${esc(r.docType)}</span> &nbsp;Uploaded by <strong>${esc(r.uploadedBy)}</strong> on ${fmtDT(r.uploadedAt)}</p>
+      <p class="text-muted" style="font-size:0.8rem;margin-bottom:12px;"><span class="badge badge-info">${esc(r.docType)}</span> &nbsp;Uploaded by <strong>${esc(r.generatedBy)}</strong> on ${fmtDT(r.createdAt)}</p>
       ${isImg
         ? `<img src="${r.dataUrl}" alt="${esc(r.title)}" style="width:100%;border-radius:6px;border:1px solid var(--border);">`
         : `<div class="alert alert-info">📄 PDF file: <strong>${esc(r.fileName)}</strong><br><a href="${r.dataUrl}" download="${esc(r.fileName)}" class="btn btn-outline btn-sm" style="margin-top:10px;">Download PDF</a></div>`}
     `, { size:'lg' });
-    Audit.log('view', `Scanned Report: ${r.title}`, 'Viewed scanned/handwritten report');
   },
 
   deleteScannedReport(reportId, routeKey) {
-    const all = Store.arr(STORAGE.SCANNED);
-    const r = all.find(x => x.id === reportId);
+    const r = State.cache.scanned.find(x => x.id === reportId);
     if (!r) return;
-    UI.confirm('Delete Scanned Report', `Delete "${r.title}"? This cannot be undone.`, () => {
-      const updated = all.filter(x => x.id !== reportId);
-      Store.set(STORAGE.SCANNED, updated);
-      Audit.log('delete', `Scanned Report: ${r.title}`, 'Deleted scanned/handwritten report');
-      UI.toast(`"${r.title}" deleted.`, 'success');
-      Pages._reportsPage(document.getElementById('main-content'), Auth.getSession(), routeKey, 'scanned');
+    UI.confirm('Delete Scanned Report', `Delete "${r.title}"? This cannot be undone.`, async () => {
+      try {
+        await API.delete('/reports/' + reportId);
+        UI.toast(`"${r.title}" deleted.`, 'success');
+        await Pages._reportsPage(document.getElementById('main-content'), Auth.getSession(), routeKey, 'scanned');
+      } catch (err) {
+        UI.toast('Error: ' + err.message, 'error');
+      }
     });
   },
 };

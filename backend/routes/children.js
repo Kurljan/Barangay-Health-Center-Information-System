@@ -10,8 +10,8 @@ router.use(protectRoute);
 // ── GET /api/children ─────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 20 } = req.query;
-    const filter = {};
+    const { search = '', page = 1, limit = 20, archived = 'false' } = req.query;
+    const filter = { archived: archived === 'true' };
     if (search) {
       const re = new RegExp(search, 'i');
       filter.$or = [{ name: re }, { motherName: re }, { address: re }];
