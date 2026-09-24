@@ -583,6 +583,7 @@ const Pages = {
     if (window.lucide) lucide.createIcons();
 
     let activeUsers = 0, overdueVaccine = 0, highRiskCount = 0, logs = [];
+    let users = [], prenatal = [], children = [];
     try {
       const [uRes, pRes, cRes, lRes] = await Promise.all([
         API.get('/users?limit=1000'),
@@ -590,9 +591,9 @@ const Pages = {
         API.get('/children?limit=1000'),
         API.get('/audit?limit=6')
       ]);
-      const users = uRes.users || [];
-      const prenatal = (pRes.records || []).filter(p => !p.archived);
-      const children = (cRes.records || []).filter(c => !c.archived);
+      users = uRes.users || [];
+      prenatal = (pRes.records || []).filter(p => !p.archived);
+      children = (cRes.records || []).filter(c => !c.archived);
       logs = lRes.logs || [];
       
       activeUsers = users.filter(u => u.status === 'Active').length;
@@ -747,7 +748,7 @@ const Pages = {
                       <div style="display:flex;gap:5px;flex-wrap:nowrap;">
                         <button class="btn btn-outline btn-sm" onclick="Pages.showEditUserModal('${u.id}')">Edit</button>
                         <button class="btn btn-outline btn-sm" onclick="Pages.showResetPwModal('${u.id}')">Reset PW</button>
-                        ${u.id !== session.userId ? `<button class="btn btn-${u.status==='Active'?'danger':'outline'} btn-sm" onclick="Pages.toggleUserStatus('${u.id}','${rk_esc(session)}')">${u.status==='Active'?'Archive':'Restore'}</button>` : ''}
+                        ${u.id !== session.id ? `<button class="btn btn-${u.status==='Active'?'danger':'outline'} btn-sm" onclick="Pages.toggleUserStatus('${u.id}','${rk_esc(session)}')">${u.status==='Active'?'Archive':'Restore'}</button>` : ''}
                       </div>
                     </td>
                   </tr>`).join('') : `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">👤</div><p>No users found</p></div></td></tr>`}
@@ -2691,7 +2692,7 @@ const Pages = {
 // HELPER: safe route key escape (session userId may contain unsafe chars)
 // ================================================================
 function rk_esc(session) {
-  return session ? session.userId.replace(/'/g, '') : '';
+  return session && session.id ? String(session.id).replace(/'/g, '') : '';
 }
 
 // ================================================================

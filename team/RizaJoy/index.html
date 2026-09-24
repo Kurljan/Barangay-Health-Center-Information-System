@@ -3,24 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BHIS — Barangay Health Information System</title>
-  <meta name="description" content="Barangay Health Information System — A role-based digital platform for Midwives, Admins, and Barangay Health Workers.">
+  <title>BHIS Midwife Dashboard — RizaJoy</title>
+  <meta name="description" content="Midwife Dashboard module of the Barangay Health Information System — Prenatal care tracking, child immunization records, senior/chronic disease management, and FHSIS report generation.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/@phosphor-icons/web"></script>
   <style>
     /* ===== VARIABLES ===== */
     :root {
-      --blue:        #1a6fb5;
-      --blue-dark:   #145a94;
-      --blue-light:  #2196F3;
-      --blue-pale:   #e8f4fd;
+      /* Midwife Theme Colors (Teal) */
+      --primary:     #0d7377;
+      --primary-dark:#0a5c5f;
+      --primary-light:#14a9ae;
+      --primary-pale:#e0f4f4;
+      
       --navy:        #0c1d2e;
       --navy-light:  #132d47;
-      --green:       #27ae60;
-      --orange:      #f5a623;
-      --red:         #e74c6f;
       --white:       #ffffff;
       --gray-50:     #f8f9fc;
       --gray-100:    #f0f2f7;
@@ -29,7 +27,6 @@
       --gray-500:    #7a8494;
       --gray-600:    #5a6270;
       --gray-700:    #3d4350;
-      --gray-800:    #252a33;
       --text-dark:   #1a1f2e;
       --text-body:   #4a5568;
       --transition:  all 0.3s ease;
@@ -46,7 +43,6 @@
     h1, h2, h3, h4, h5 { font-family: 'Outfit', system-ui, sans-serif; }
     a { text-decoration: none; color: inherit; }
     ul { list-style: none; }
-    img { max-width: 100%; }
     button { cursor: pointer; font-family: inherit; border: none; }
 
     /* ===== NAVBAR ===== */
@@ -67,22 +63,22 @@
     }
     .brand-icon {
       width: 42px; height: 42px;
-      border: 2px solid var(--blue);
+      border: 2px solid var(--primary);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 20px; color: var(--blue);
+      font-size: 20px; color: var(--primary);
       position: relative;
     }
     .brand-icon::after {
       content: '+';
       position: absolute; top: -2px; right: -4px;
-      font-size: 14px; font-weight: 700; color: var(--blue);
+      font-size: 14px; font-weight: 700; color: var(--primary);
     }
     .brand-name {
       font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.4rem;
       color: var(--navy);
     }
-    .brand-name span { color: var(--blue); }
+    .brand-name span { color: var(--primary); }
 
     .nav-center { display: flex; align-items: center; gap: 36px; }
     .nav-center a {
@@ -90,28 +86,28 @@
       transition: var(--transition); position: relative;
       padding: 6px 0;
     }
-    .nav-center a:hover { color: var(--blue); }
+    .nav-center a:hover { color: var(--primary); }
     .nav-center a.active { color: var(--navy); font-weight: 600; }
     .nav-center a.active::after {
       content: ''; position: absolute; bottom: -2px; left: 0; right: 0;
-      height: 2px; background: var(--blue); border-radius: 1px;
+      height: 2px; background: var(--primary); border-radius: 1px;
     }
 
     .nav-right { display: flex; align-items: center; gap: 20px; }
     .nav-cta {
       padding: 12px 28px;
-      background: var(--blue);
+      background: var(--primary);
       color: var(--white); font-weight: 600; font-size: 0.9rem;
       border-radius: 6px;
       transition: var(--transition);
     }
-    .nav-cta:hover { background: var(--blue-dark); }
+    .nav-cta:hover { background: var(--primary-dark); }
 
     /* ===== HERO ===== */
     .hero {
       min-height: 100vh;
       display: flex; align-items: center;
-      background-color: #eef5fb;
+      background: linear-gradient(135deg, var(--navy) 0%, #1a3a5c 50%, var(--navy-light) 100%);
       position: relative; overflow: hidden;
       padding: 80px 60px 0;
     }
@@ -119,43 +115,37 @@
       content: '';
       position: absolute; inset: 0;
       background:
-        radial-gradient(circle at 20% 80%, rgba(58,130,247,0.08) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(58,130,247,0.05) 0%, transparent 50%);
+        radial-gradient(circle at 20% 80%, rgba(13,115,119,0.15) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(13,115,119,0.1) 0%, transparent 50%);
       pointer-events: none;
     }
-    /* Decorative topography pattern */
+    /* Decorative grid pattern */
     .hero-pattern {
       position: absolute; inset: 0;
-      background-image: 
-        radial-gradient(circle at 0% 0%, transparent 40%, rgba(58,130,247,0.05) 41%, transparent 42%),
-        radial-gradient(circle at 0% 0%, transparent 45%, rgba(58,130,247,0.05) 46%, transparent 47%),
-        radial-gradient(circle at 0% 0%, transparent 50%, rgba(58,130,247,0.05) 51%, transparent 52%),
-        radial-gradient(circle at 0% 0%, transparent 55%, rgba(58,130,247,0.05) 56%, transparent 57%),
-        radial-gradient(circle at 0% 0%, transparent 60%, rgba(58,130,247,0.05) 61%, transparent 62%),
-        radial-gradient(circle at 0% 0%, transparent 65%, rgba(58,130,247,0.05) 66%, transparent 67%),
-        radial-gradient(circle at 0% 0%, transparent 70%, rgba(58,130,247,0.05) 71%, transparent 72%),
-        radial-gradient(circle at 0% 0%, transparent 75%, rgba(58,130,247,0.05) 76%, transparent 77%);
-      background-size: 100% 100%;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 80px 80px;
       pointer-events: none;
     }
     /* Decorative floating shapes */
     .hero-deco {
       position: absolute; border-radius: 50%;
-      pointer-events: none; opacity: 0.15;
+      pointer-events: none; opacity: 0.06;
     }
     .hero-deco-1 {
       width: 400px; height: 400px;
-      border: 2px solid #3a82f7;
+      border: 2px solid #fff;
       top: -100px; right: -50px;
     }
     .hero-deco-2 {
       width: 200px; height: 200px;
-      border: 2px solid #3a82f7;
+      border: 2px solid #fff;
       bottom: 100px; left: 10%;
     }
     .hero-deco-3 {
       width: 80px; height: 80px;
-      background: #3a82f7;
+      background: var(--primary);
       top: 30%; left: 15%;
       opacity: 0.08;
     }
@@ -167,49 +157,43 @@
     }
     .hero-subtitle {
       font-size: 0.88rem; font-weight: 600;
-      color: #3a82f7;
+      color: var(--primary-light);
       letter-spacing: 1.5px; text-transform: uppercase;
       margin-bottom: 20px;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .hero-subtitle::before {
-      content: ''; display: inline-block; width: 40px; height: 2px;
-      background: #3a82f7;
     }
     .hero-title {
       font-size: clamp(3rem, 6.5vw, 5.5rem);
-      font-weight: 900; color: #1a2538;
+      font-weight: 900; color: var(--white);
       line-height: 1.02; letter-spacing: -2px;
       margin-bottom: 24px;
     }
     .hero-desc {
       font-size: 1.05rem; line-height: 1.8;
-      color: #5a6270;
+      color: rgba(255,255,255,0.65);
       max-width: 500px; margin-bottom: 40px;
     }
     .hero-buttons { display: flex; gap: 16px; flex-wrap: wrap; }
     .btn-hero-primary {
       padding: 16px 36px;
-      background: #3a82f7;
+      background: var(--primary);
       color: var(--white); font-weight: 700; font-size: 0.95rem;
       border-radius: 6px;
       transition: var(--transition);
       display: inline-flex; align-items: center; gap: 10px;
-      border: none;
     }
-    .btn-hero-primary:hover { background: #2d68c9; transform: translateY(-2px); }
+    .btn-hero-primary:hover { background: var(--primary-light); transform: translateY(-2px); }
     .btn-hero-outline {
       padding: 16px 36px;
       background: transparent;
-      color: #3a82f7; font-weight: 600; font-size: 0.95rem;
-      border: 1px solid #3a82f7; border-radius: 6px;
+      color: var(--white); font-weight: 600; font-size: 0.95rem;
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 6px;
       transition: var(--transition);
     }
-    .btn-hero-outline:hover { border-color: #2d68c9; background: rgba(58,130,247,0.05); color: #2d68c9; }
+    .btn-hero-outline:hover { border-color: var(--white); background: rgba(255,255,255,0.05); }
     .scroll-indicator {
       position: absolute; bottom: 40px; right: 60px; z-index: 2;
       display: flex; align-items: center; gap: 8px;
-      color: #7a8494; font-size: 0.82rem; font-weight: 500;
+      color: rgba(255,255,255,0.5); font-size: 0.82rem; font-weight: 500;
     }
     .scroll-arrow { animation: scrollBounce 2s ease-in-out infinite; }
     @keyframes scrollBounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(5px); } }
@@ -222,7 +206,7 @@
     .services-header { margin-bottom: 64px; }
     .services-header .section-tag {
       font-size: 0.78rem; font-weight: 700; letter-spacing: 2px;
-      text-transform: uppercase; color: var(--blue);
+      text-transform: uppercase; color: var(--primary);
       margin-bottom: 12px;
     }
     .services-header h2 {
@@ -230,53 +214,40 @@
       font-weight: 900; color: var(--text-dark);
       letter-spacing: -1px; line-height: 1.15;
     }
-    .service-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      gap: 32px;
-      max-width: 1200px;
-    }
+    .service-list { max-width: 1000px; }
     .service-item {
-      display: flex; flex-direction: column; gap: 20px;
-      padding: 40px;
-      background: var(--white);
-      border-radius: 16px;
-      border: 1px solid var(--gray-200);
+      display: flex; align-items: flex-start; gap: 32px;
+      padding: 40px 0;
+      border-bottom: 1px solid var(--gray-200);
       transition: var(--transition);
-      position: relative;
     }
-    .service-item:hover { 
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.06);
-      border-color: var(--blue-light);
-    }
+    .service-item:first-child { border-top: 1px solid var(--gray-200); }
+    .service-item:hover { padding-left: 12px; }
     .service-num {
-      font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800;
-      color: var(--blue-light); opacity: 0.3;
-      transition: var(--transition);
+      font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 800;
+      color: var(--primary-light); opacity: 0.6;
+      min-width: 60px; padding-top: 2px;
     }
-    .service-item:hover .service-num {
-      opacity: 0.8;
-    }
-    .service-body { flex: 1; display: flex; flex-direction: column; }
+    .service-body { flex: 1; }
     .service-name {
       font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 700;
-      color: var(--text-dark); margin-bottom: 12px;
+      color: var(--text-dark); margin-bottom: 10px;
     }
     .service-desc {
-      font-size: 0.95rem; color: var(--text-body); line-height: 1.7;
+      font-size: 0.92rem; color: var(--text-body); line-height: 1.7;
+      max-width: 500px;
     }
     .service-arrow {
-      align-self: flex-start; margin-top: auto;
-      width: 44px; height: 44px;
+      width: 48px; height: 48px;
       border: 1px solid var(--gray-200); border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       color: var(--gray-500); font-size: 1.2rem;
       transition: var(--transition);
+      flex-shrink: 0; align-self: center;
       background: transparent; cursor: pointer;
     }
     .service-item:hover .service-arrow {
-      background: var(--blue); border-color: var(--blue); color: var(--white);
+      background: var(--primary); border-color: var(--primary); color: var(--white);
     }
 
     /* ===== ABOUT SECTION ===== */
@@ -300,7 +271,7 @@
       justify-content: center;
     }
     .about-card-1 {
-      background: var(--blue);
+      background: var(--primary);
       color: var(--white);
       grid-row: span 1;
     }
@@ -313,7 +284,7 @@
       font-weight: 700; line-height: 1.4;
     }
     .about-card-2 {
-      background: var(--blue-pale);
+      background: var(--primary-pale);
       display: flex; align-items: center; justify-content: center;
       min-height: 180px;
     }
@@ -329,7 +300,7 @@
     .stat-block { text-align: center; }
     .stat-block .sb-num {
       font-family: 'Outfit', sans-serif; font-size: 2rem;
-      font-weight: 900; color: var(--blue-light);
+      font-weight: 900; color: var(--primary-light);
     }
     .stat-block .sb-label {
       font-size: 0.78rem; color: rgba(255,255,255,0.6);
@@ -338,7 +309,7 @@
 
     .about-text .section-tag {
       font-size: 0.78rem; font-weight: 700; letter-spacing: 2px;
-      text-transform: uppercase; color: var(--blue);
+      text-transform: uppercase; color: var(--primary);
       margin-bottom: 14px;
     }
     .about-text h2 {
@@ -352,7 +323,7 @@
       margin-bottom: 16px;
     }
 
-    /* ===== ROLES SECTION ===== */
+    /* ===== MODULES SECTION (Using Roles Section structure) ===== */
     .roles-section {
       padding: 100px 60px;
       background: var(--white);
@@ -362,7 +333,7 @@
     }
     .roles-header .section-tag {
       font-size: 0.78rem; font-weight: 700; letter-spacing: 2px;
-      text-transform: uppercase; color: var(--blue); margin-bottom: 12px;
+      text-transform: uppercase; color: var(--primary); margin-bottom: 12px;
     }
     .roles-header h2 {
       font-size: clamp(1.8rem, 3.5vw, 2.8rem);
@@ -374,8 +345,8 @@
       max-width: 520px; margin: 0 auto;
     }
     .roles-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 28px; max-width: 1100px; margin: 0 auto;
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 28px; max-width: 900px; margin: 0 auto;
     }
     .role-card {
       background: var(--white);
@@ -387,11 +358,9 @@
     .role-card::before {
       content: ''; position: absolute;
       top: 0; left: 0; right: 0; height: 3px;
+      background: var(--primary);
       transition: var(--transition);
     }
-    .role-card.admin::before   { background: var(--red); }
-    .role-card.midwife::before { background: var(--blue); }
-    .role-card.bhw::before     { background: var(--orange); }
     .role-card:hover {
       transform: translateY(-6px);
       box-shadow: 0 12px 40px rgba(0,0,0,0.08);
@@ -402,10 +371,8 @@
       border-radius: 12px;
       display: flex; align-items: center; justify-content: center;
       font-size: 1.6rem; margin-bottom: 20px;
+      background: var(--primary-pale);
     }
-    .admin .rc-icon   { background: rgba(231,76,111,0.1); }
-    .midwife .rc-icon  { background: var(--blue-pale); }
-    .bhw .rc-icon      { background: rgba(245,166,35,0.1); }
     .rc-title {
       font-family: 'Outfit', sans-serif; font-size: 1.2rem;
       font-weight: 800; color: var(--text-dark); margin-bottom: 8px;
@@ -421,10 +388,8 @@
     }
     .rc-list li::before {
       content: '✓'; font-weight: 700; flex-shrink: 0;
+      color: var(--primary);
     }
-    .admin .rc-list li::before   { color: var(--red); }
-    .midwife .rc-list li::before { color: var(--blue); }
-    .bhw .rc-list li::before     { color: var(--orange); }
 
     /* ===== LOGIN SECTION ===== */
     .login-section {
@@ -438,7 +403,7 @@
     }
     .login-info .section-tag {
       font-size: 0.78rem; font-weight: 700; letter-spacing: 2px;
-      text-transform: uppercase; color: var(--blue); margin-bottom: 14px;
+      text-transform: uppercase; color: var(--primary); margin-bottom: 14px;
     }
     .login-info h2 {
       font-size: clamp(1.6rem, 3vw, 2.4rem);
@@ -457,7 +422,7 @@
     }
     .login-info-icon {
       width: 40px; height: 40px; flex-shrink: 0;
-      background: var(--blue-pale);
+      background: var(--primary-pale);
       border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       font-size: 1.1rem;
@@ -472,7 +437,7 @@
     .lc-header { text-align: center; margin-bottom: 28px; }
     .lc-logo {
       width: 52px; height: 52px; margin: 0 auto 14px;
-      background: var(--blue);
+      background: var(--primary);
       border-radius: 12px;
       display: flex; align-items: center; justify-content: center;
       font-size: 24px; color: var(--white);
@@ -491,8 +456,8 @@
     }
     .role-sel-btn .rs-icon { display: block; font-size: 1.3rem; margin-bottom: 3px; }
     .role-sel-btn:hover, .role-sel-btn.active {
-      border-color: var(--blue); color: var(--blue);
-      background: var(--blue-pale);
+      border-color: var(--primary); color: var(--primary);
+      background: var(--primary-pale);
     }
     .form-field { margin-bottom: 16px; }
     .form-field label {
@@ -506,16 +471,16 @@
       font-size: 0.9rem; font-family: 'Inter', sans-serif;
       transition: var(--transition); outline: none;
     }
-    .form-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,111,181,0.1); background: var(--white); }
+    .form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,115,119,0.1); background: var(--white); }
     .form-input::placeholder { color: var(--gray-300); }
     .btn-signin {
       width: 100%; padding: 14px;
-      background: var(--blue); color: var(--white);
+      background: var(--primary); color: var(--white);
       border-radius: 8px; font-size: 0.95rem; font-weight: 700;
       font-family: 'Outfit', sans-serif;
       transition: var(--transition); margin-top: 8px;
     }
-    .btn-signin:hover { background: var(--blue-dark); }
+    .btn-signin:hover { background: var(--primary-dark); }
     .demo-creds {
       margin-top: 20px; padding: 14px;
       background: var(--gray-50); border: 1px solid var(--gray-200);
@@ -545,20 +510,20 @@
     }
     .fb-icon {
       width: 38px; height: 38px;
-      border: 2px solid var(--blue-light);
+      border: 2px solid var(--primary-light);
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: 16px; position: relative;
     }
     .fb-icon::after {
       content: '+'; position: absolute; top: -2px; right: -4px;
-      font-size: 12px; font-weight: 700; color: var(--blue-light);
+      font-size: 12px; font-weight: 700; color: var(--primary-light);
     }
     .fb-name {
       font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.3rem;
       color: var(--white);
     }
-    .fb-name span { color: var(--blue-light); }
+    .fb-name span { color: var(--primary-light); }
     .footer-brand .fb-desc {
       font-size: 0.88rem; line-height: 1.7;
       color: rgba(255,255,255,0.5);
@@ -575,13 +540,7 @@
       line-height: 1.7; display: block; transition: var(--transition);
     }
     .footer-col a { margin-bottom: 10px; }
-    .footer-col a:hover { color: var(--blue-light); }
-    .footer-contact-item {
-      display: flex; align-items: flex-start; gap: 8px;
-      margin-bottom: 10px;
-    }
-    .footer-contact-item .fci-icon { font-size: 0.9rem; margin-top: 3px; }
-    .footer-contact-item span { font-size: 0.88rem; color: rgba(255,255,255,0.5); line-height: 1.6; }
+    .footer-col a:hover { color: var(--primary-light); }
 
     .footer-bottom {
       display: flex; align-items: center; justify-content: space-between;
@@ -590,17 +549,17 @@
     .footer-bottom p { font-size: 0.8rem; color: rgba(255,255,255,0.35); }
     .footer-bottom-links { display: flex; gap: 20px; }
     .footer-bottom-links a { font-size: 0.8rem; color: rgba(255,255,255,0.35); transition: var(--transition); }
-    .footer-bottom-links a:hover { color: var(--blue-light); }
+    .footer-bottom-links a:hover { color: var(--primary-light); }
 
     /* ===== BACK TO TOP ===== */
     .back-to-top {
       position: fixed; bottom: 30px; right: 30px; z-index: 999;
       width: 44px; height: 44px;
-      background: var(--blue); color: var(--white);
+      background: var(--primary); color: var(--white);
       border-radius: 50%; border: none;
       display: flex; align-items: center; justify-content: center;
       font-size: 1.2rem;
-      box-shadow: 0 4px 14px rgba(26,111,181,0.4);
+      box-shadow: 0 4px 14px rgba(13,115,119,0.4);
       transition: var(--transition);
       opacity: 0; pointer-events: none;
     }
@@ -638,18 +597,18 @@
   <!-- ===== NAVBAR ===== -->
   <nav class="navbar" id="navbar">
     <div class="navbar-brand">
-      <div class="brand-icon"><i class="ph-fill ph-hospital"></i></div>
-      <div class="brand-name">B<span>HIS</span></div>
+      <div class="brand-icon">🏥</div>
+      <div class="brand-name">BHIS <span>Midwife</span></div>
     </div>
     <div class="nav-center">
       <a href="#home" class="active">Home</a>
-      <a href="#services">Services</a>
+      <a href="#services">Capabilities</a>
       <a href="#about">About</a>
-      <a href="#roles">Roles</a>
+      <a href="#modules">Programs</a>
       <a href="#login">Login</a>
     </div>
     <div class="nav-right">
-      <a href="#login" class="nav-cta">Sign In</a>
+      <a href="#login" class="nav-cta">Midwife Sign In</a>
     </div>
   </nav>
 
@@ -660,15 +619,16 @@
     <div class="hero-deco hero-deco-2"></div>
     <div class="hero-deco hero-deco-3"></div>
     <div class="hero-content">
-      <div class="hero-subtitle">Barangay Digital Health Platform</div>
-      <h1 class="hero-title">Barangay<br>Health Center</h1>
+      <div class="hero-subtitle">Midwife Dashboard — RizaJoy</div>
+      <h1 class="hero-title">Health Program<br>Management</h1>
       <p class="hero-desc">
-        A role-based health information system designed for Barangay Health Centers —
-        managing prenatal care, child immunization, resident profiles, and FHSIS reports.
+        The Midwife Dashboard is the clinical heart of BHIS — tracking prenatal care patients,
+        managing child immunization schedules, monitoring senior/chronic disease patients,
+        and generating FHSIS &amp; MHO reports for submission.
       </p>
       <div class="hero-buttons">
-        <a href="#login" class="btn-hero-primary">Sign In →</a>
-        <a href="#services" class="btn-hero-outline">Learn More</a>
+        <a href="#login" class="btn-hero-primary">Midwife Sign In →</a>
+        <a href="#services" class="btn-hero-outline">View Capabilities</a>
       </div>
     </div>
     <div class="scroll-indicator">
@@ -677,18 +637,18 @@
     </div>
   </section>
 
-  <!-- ===== SERVICES ===== -->
+  <!-- ===== SERVICES (Capabilities) ===== -->
   <section class="services-section" id="services">
     <div class="services-header">
-      <div class="section-tag">Health Services</div>
-      <h2>Comprehensive barangay<br>health management</h2>
+      <div class="section-tag">Midwife Capabilities</div>
+      <h2>Complete health<br>program tracking</h2>
     </div>
     <div class="service-list">
       <div class="service-item">
         <div class="service-num">01.</div>
         <div class="service-body">
           <div class="service-name">Prenatal Care Tracking</div>
-          <div class="service-desc">Register patients, log prenatal visits with BP, AOG, weight, fundal height, and fetal heart rate. Track delivery outcomes and flag high-risk pregnancies automatically.</div>
+          <div class="service-desc">Register patients with LMP, EDD, gravida/para. Log each visit: date, AOG, BP, weight, fundal height, fetal heart rate. Flag high-risk pregnancies.</div>
         </div>
         <button class="service-arrow" onclick="location.href='#login'">→</button>
       </div>
@@ -696,19 +656,26 @@
         <div class="service-num">02.</div>
         <div class="service-body">
           <div class="service-name">Child Immunization Records</div>
-          <div class="service-desc">Full vaccine schedule tracking — BCG, Hepatitis B, DPT, OPV, Rotavirus, PCV, and Measles — with due/overdue alerts and completion percentage per child.</div>
+          <div class="service-desc">Track 7 vaccine types (BCG, Hepatitis B, DPT, OPV, Rotavirus, PCV, Measles) with dose schedules, due dates, and auto-computed completion percentage.</div>
         </div>
         <button class="service-arrow" onclick="location.href='#login'">→</button>
       </div>
       <div class="service-item">
         <div class="service-num">03.</div>
         <div class="service-body">
-          <div class="service-name">FHSIS &amp; MHO Reporting</div>
-          <div class="service-desc">Auto-generate monthly health reports per program type. Preview on-screen, then export to PDF or Excel for submission to the Municipal Health Office.</div>
+          <div class="service-name">Senior &amp; Chronic Disease</div>
+          <div class="service-desc">Register senior/chronic patients with conditions, medications. Log consultations (BP, blood sugar, weight), schedule follow-ups, and track medication compliance.</div>
         </div>
         <button class="service-arrow" onclick="location.href='#login'">→</button>
       </div>
-
+      <div class="service-item">
+        <div class="service-num">04.</div>
+        <div class="service-body">
+          <div class="service-name">FHSIS &amp; MHO Reporting</div>
+          <div class="service-desc">Auto-generate monthly reports per program type. Preview, then export to PDF or Excel. Maintain a full report history for re-export.</div>
+        </div>
+        <button class="service-arrow" onclick="location.href='#login'">→</button>
+      </div>
     </div>
   </section>
 
@@ -717,91 +684,97 @@
     <div class="about-layout">
       <div class="about-visual">
         <div class="about-card about-card-1">
-          <div class="ac-label">Digital Health</div>
-          <div class="ac-title">Barangay health center management system</div>
+          <div class="ac-label">Midwife Dashboard</div>
+          <div class="ac-title">Clinical operations and FHSIS reporting</div>
         </div>
         <div class="about-card about-card-2">
-          <div class="ac-icon"><i class="ph-duotone ph-hospital"></i></div>
+          <div class="ac-icon">🏥</div>
         </div>
         <div class="about-card about-card-3">
           <div class="stat-block">
-            <div class="sb-num">3</div>
-            <div class="sb-label">User Roles</div>
+            <div class="sb-num">4</div>
+            <div class="sb-label">Health Programs</div>
           </div>
           <div class="stat-block">
-            <div class="sb-num">11+</div>
-            <div class="sb-label">Feature Modules</div>
+            <div class="sb-num">7</div>
+            <div class="sb-label">Vaccine Types</div>
           </div>
           <div class="stat-block">
-            <div class="sb-num">5K+</div>
-            <div class="sb-label">Records Supported</div>
+            <div class="sb-num">2</div>
+            <div class="sb-label">Export Formats</div>
           </div>
         </div>
       </div>
       <div class="about-text">
-        <div class="section-tag">About BHIS</div>
-        <h2>Your community's health is our priority</h2>
+        <div class="section-tag">About Midwife Dashboard</div>
+        <h2>Empowering clinical care at the barangay level</h2>
         <p>
-          BHIS is a role-based web application built specifically for barangay health centers.
-          It replaces manual paper records with a streamlined digital system that tracks
-          prenatal care, child immunization, chronic disease management, and generates
-          FHSIS reports automatically.
+          The Midwife Dashboard provides all the necessary tools for a Licensed Barangay Midwife to track, manage, and report on the community's health programs effectively.
         </p>
         <p>
-          Designed for three distinct user roles — Admin, Midwife, and BHW — each with
-          their own dedicated dashboard and feature set. The system supports offline data
-          entry for field health workers and ensures complete data privacy through
-          comprehensive audit logging.
+          From the first prenatal visit to the final immunization shot, every step of the patient journey is recorded. Automated FHSIS reporting eliminates manual tallying, ensuring accurate and timely submissions to the Municipal Health Office.
         </p>
       </div>
     </div>
   </section>
 
-  <!-- ===== ROLES ===== -->
-  <section class="roles-section" id="roles">
+  <!-- ===== MODULES ===== -->
+  <section class="roles-section" id="modules">
     <div class="roles-header">
-      <div class="section-tag">System Roles</div>
-      <h2>Three roles, one system</h2>
+      <div class="section-tag">Health Programs</div>
+      <h2>Four integrated health modules</h2>
       <p>
-        Each role has a dedicated dashboard with features tailored to their responsibilities.
-        Role-based access ensures data security and proper separation of duties.
+        Each program provides complete CRUD, search/filter, alerts for overdue cases,
+        and feeds data into the FHSIS &amp; MHO report engine.
       </p>
     </div>
     <div class="roles-grid">
-      <div class="role-card admin">
-        <div class="rc-icon"><i class="ph-duotone ph-user"></i></div>
-        <div class="rc-title">System Administrator</div>
-        <div class="rc-desc">Manages user accounts, monitors activity through audit logs, and configures system settings.</div>
+      <!-- Prenatal -->
+      <div class="role-card">
+        <div class="rc-icon">🤰</div>
+        <div class="rc-title">Prenatal Care Tracking</div>
+        <div class="rc-desc">Complete pregnancy monitoring from registration through delivery.</div>
         <ul class="rc-list">
-          <li>Create, edit &amp; deactivate users</li>
-          <li>View full audit trail</li>
-          <li>Export logs to PDF / CSV</li>
-          <li>Configure barangay settings</li>
-          <li>Reset user passwords</li>
+          <li>Register patient (name, age, LMP, EDD)</li>
+          <li>Log visits: BP, weight, fundal height, FHR</li>
+          <li>Record delivery outcome</li>
+          <li>Overdue visit &amp; high-risk alerts</li>
         </ul>
       </div>
-      <div class="role-card midwife">
-        <div class="rc-icon"><i class="ph-duotone ph-first-aid-kit"></i></div>
-        <div class="rc-title">Licensed Barangay Midwife</div>
-        <div class="rc-desc">Tracks health programs and generates official FHSIS &amp; MHO reports for submission.</div>
+      <!-- Immunization -->
+      <div class="role-card">
+        <div class="rc-icon">💉</div>
+        <div class="rc-title">Child Immunization</div>
+        <div class="rc-desc">Full vaccine schedule tracking per child with automatic due dates.</div>
         <ul class="rc-list">
-          <li>Prenatal care &amp; visit logging</li>
-          <li>Child immunization tracking</li>
-          <li>Senior / chronic disease records</li>
-          <li>Overdue &amp; high-risk alerts</li>
-          <li>Monthly report generation</li>
+          <li>Register child details</li>
+          <li>Log vaccine administered (date &amp; dose)</li>
+          <li>View full vaccine schedule</li>
+          <li>Due/overdue vaccine alerts</li>
         </ul>
       </div>
-      <div class="role-card bhw">
-        <div class="rc-icon"><i class="ph-duotone ph-house"></i></div>
-        <div class="rc-title">Barangay Health Worker</div>
-        <div class="rc-desc">Manages resident profiles and household records in the field with offline data entry.</div>
+      <!-- Senior / Chronic -->
+      <div class="role-card">
+        <div class="rc-icon">🩺</div>
+        <div class="rc-title">Senior / Chronic Disease</div>
+        <div class="rc-desc">Condition and medication management with follow-up scheduling.</div>
         <ul class="rc-list">
-          <li>Digital resident profiles</li>
-          <li>Pamilya (household) folders</li>
-          <li>Health condition tagging</li>
-          <li>Offline data entry &amp; auto-sync</li>
-          <li>Pending sync tracking</li>
+          <li>Register patient conditions &amp; meds</li>
+          <li>Log consultations (BP, blood sugar)</li>
+          <li>Track follow-up appointments</li>
+          <li>Search by condition type</li>
+        </ul>
+      </div>
+      <!-- Reporting -->
+      <div class="role-card">
+        <div class="rc-icon">📊</div>
+        <div class="rc-title">FHSIS &amp; MHO Reports</div>
+        <div class="rc-desc">Automated monthly report generation from live health data.</div>
+        <ul class="rc-list">
+          <li>Generate monthly FHSIS reports</li>
+          <li>Preview report before export</li>
+          <li>Export to PDF (jsPDF) or Excel (SheetJS)</li>
+          <li>View report history</li>
         </ul>
       </div>
     </div>
@@ -812,42 +785,42 @@
     <div class="login-layout">
       <div class="login-info">
         <div class="section-tag">System Access</div>
-        <h2>Sign in to the Barangay Health System</h2>
+        <h2 style="font-size: 2rem;">Sign in to the Midwife Dashboard</h2>
         <p>
-          Access is restricted to authorized barangay health center personnel only.
-          Select your role and enter your credentials to access your dashboard.
+          Access is restricted to authorized Barangay Midwives.
+          Enter your credentials to access your dashboard.
         </p>
         <div class="login-info-list">
           <div class="login-info-item">
-            <div class="login-info-icon"><i class="ph-duotone ph-lock-key"></i></div>
-            <span>Role-based access control — each user sees only their dashboard</span>
+            <div class="login-info-icon">🔒</div>
+            <span>Secure access to patient health records</span>
           </div>
           <div class="login-info-item">
-            <div class="login-info-icon"><i class="ph-duotone ph-clipboard-text"></i></div>
-            <span>All actions logged automatically in the audit trail</span>
+            <div class="login-info-icon">📋</div>
+            <span>Access prenatal, immunization, and FHSIS tools</span>
           </div>
           <div class="login-info-item">
-            <div class="login-info-icon"><i class="ph-duotone ph-clock"></i></div>
-            <span>Session management with automatic timeout protection</span>
+            <div class="login-info-icon">⏱️</div>
+            <span>Session timeout protection active</span>
           </div>
         </div>
       </div>
       <div class="login-card">
         <div class="lc-header">
-          <div class="lc-logo"><i class="ph-fill ph-hospital"></i></div>
+          <div class="lc-logo">🏥</div>
           <h3>BHIS Portal</h3>
           <p>Barangay Health Information System</p>
         </div>
         <div style="font-size:0.75rem;color:var(--gray-500);font-weight:600;margin-bottom:8px;">Select your role</div>
         <div class="role-selector">
-          <button class="role-sel-btn active" data-role="Admin" onclick="selectRole(this)">
-            <span class="rs-icon"><i class="ph-fill ph-user"></i></span>Admin
+          <button class="role-sel-btn" data-role="Admin" onclick="selectRole(this)">
+            <span class="rs-icon">👤</span>Admin
           </button>
-          <button class="role-sel-btn" data-role="Midwife" onclick="selectRole(this)">
-            <span class="rs-icon"><i class="ph-fill ph-first-aid-kit"></i></span>Midwife
+          <button class="role-sel-btn active" data-role="Midwife" onclick="selectRole(this)">
+            <span class="rs-icon">🏥</span>Midwife
           </button>
           <button class="role-sel-btn" data-role="BHW" onclick="selectRole(this)">
-            <span class="rs-icon"><i class="ph-fill ph-house"></i></span>BHW
+            <span class="rs-icon">🏘️</span>BHW
           </button>
         </div>
         <div class="form-field">
@@ -872,12 +845,11 @@
     <div class="footer-top">
       <div class="footer-brand">
         <div class="fb-logo">
-          <div class="fb-icon"><i class="ph-fill ph-hospital"></i></div>
-          <div class="fb-name">B<span>HIS</span></div>
+          <div class="fb-icon">🏥</div>
+          <div class="fb-name">BHIS <span>Midwife</span></div>
         </div>
         <p class="fb-desc">
-          A role-based health information system for barangay health centers — managing prenatal care, immunization,
-          and community health records.
+          Midwife Dashboard for managing prenatal care, child immunization, and FHSIS reporting.
         </p>
       </div>
       <div class="footer-col">
@@ -889,16 +861,16 @@
       <div class="footer-col">
         <h4>Quick Links</h4>
         <a href="#about">About</a>
-        <a href="#services">Services</a>
-        <a href="#roles">Roles</a>
+        <a href="#services">Capabilities</a>
+        <a href="#modules">Programs</a>
         <a href="#login">Sign In</a>
       </div>
       <div class="footer-col">
         <h4>Team</h4>
-        <a href="team/kerlJan/index.html">KerlJan — Landing Page</a>
-        <a href="team/RegineMae/index.html">RegineMae — Admin Panel</a>
-        <a href="team/RizaJoy/index.html">RizaJoy — Midwife Dashboard</a>
-        <a href="team/beverly/index.html">Beverly — BHW Dashboard</a>
+        <a href="../../index.html">KerlJan — Landing Page</a>
+        <a href="../RegineMae/index.html">RegineMae — Admin Panel</a>
+        <a href="index.html">RizaJoy — Midwife Dashboard</a>
+        <a href="../beverly/index.html">Beverly — BHW Dashboard</a>
       </div>
     </div>
     <div class="footer-bottom">
@@ -928,7 +900,7 @@
         alert('Please enter your username and password.');
         return;
       }
-      window.location.href = 'app.html';
+      window.location.href = '../../app.html';
     }
 
     // Enter key

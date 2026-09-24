@@ -45,10 +45,10 @@ app.use('/api/settings', settingsRoutes);
 const FRONTEND_DIR = path.join(__dirname, '..');
 app.use(express.static(FRONTEND_DIR));
 
-// SPA fallback — serve index.html for any non-API route
+// SPA fallback — serve app.html for any non-API route (the actual BHIS application)
 app.get('*', (req, res) => {
   if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+    res.sendFile(path.join(FRONTEND_DIR, 'app.html'));
   } else {
     res.status(404).json({ error: 'API route not found' });
   }

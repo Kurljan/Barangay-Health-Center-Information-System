@@ -5,37 +5,37 @@
 
 /* ============ CSS VARIABLES ============ */
 :root {
-  --primary: #0d7377;
-  --primary-dark: #0a5c5f;
-  --primary-light: #14a9ae;
-  --accent: #32e0c4;
-  --accent-dark: #22c4a9;
+  --primary: #3a82f7;
+  --primary-dark: #2d68c9;
+  --primary-light: #5b9bf8;
+  --accent: #1a2538;
+  --accent-dark: #0e1420;
   --danger: #e74c6f;
   --warning: #f5a623;
   --success: #27ae60;
-  --info: #2980b9;
+  --info: #3a82f7;
 
-  --bg-dark: #0f1923;
-  --bg-card: #1a2535;
-  --bg-card-hover: #1f2d42;
-  --bg-sidebar: #0c1520;
+  --bg-dark: #eef5fb;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-sidebar: #ffffff;
   --sidebar-width: 260px;
 
-  --text-primary: #e8edf5;
-  --text-secondary: #8a9bb5;
-  --text-muted: #5a6a82;
+  --text-primary: #1a2538;
+  --text-secondary: #5a6270;
+  --text-muted: #7a8494;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(50, 224, 196, 0.4);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-focus: rgba(58, 130, 247, 0.4);
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.08);
 
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 
   --transition: all 0.2s ease;
   --transition-slow: all 0.35s ease;
@@ -62,7 +62,7 @@ textarea { resize: vertical; }
 /* ============ SCROLLBAR ============ */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
 /* ============ APP LAYOUT ============ */
@@ -92,11 +92,11 @@ textarea { resize: vertical; }
 }
 .logo-icon {
   width: 42px; height: 42px;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: var(--primary);
   border-radius: var(--radius-sm);
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px;
-  box-shadow: 0 4px 12px rgba(13, 115, 119, 0.4);
+  font-size: 22px; color: #fff;
+  box-shadow: 0 4px 12px rgba(58, 130, 247, 0.2);
   flex-shrink: 0;
 }
 .logo-text h2 {
@@ -151,13 +151,13 @@ textarea { resize: vertical; }
   border-left: 3px solid transparent;
 }
 .nav-item:hover {
-  background: rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.03);
   color: var(--text-primary);
 }
 .nav-item.active {
-  background: linear-gradient(90deg, rgba(13,115,119,0.25), rgba(50,224,196,0.08));
-  color: var(--accent);
-  border-left-color: var(--accent);
+  background: rgba(58,130,247,0.08);
+  color: var(--primary);
+  border-left-color: var(--primary);
 }
 .nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
 
@@ -172,7 +172,7 @@ textarea { resize: vertical; }
 .sidebar-avatar {
   width: 34px; height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: var(--primary);
   display: flex; align-items: center; justify-content: center;
   font-weight: 700;
   font-size: 0.85rem;
@@ -243,7 +243,7 @@ textarea { resize: vertical; }
   content: '';
   position: absolute;
   width: 700px; height: 700px;
-  background: radial-gradient(circle, rgba(13,115,119,0.18) 0%, transparent 65%);
+  background: radial-gradient(circle, rgba(58,130,247,0.1) 0%, transparent 65%);
   top: -250px; right: -200px;
   border-radius: 50%;
   pointer-events: none;
