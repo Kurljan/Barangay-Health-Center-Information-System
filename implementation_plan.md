@@ -11,8 +11,8 @@ This system serves three user roles with distinct dashboards and feature sets:
 | Role | Key Responsibilities |
 |------|---------------------|
 | **Admin** | User account management, role assignment, audit logs, system settings |
-| **Midwife** | Health program tracking (prenatal, immunization, senior/chronic), FHSIS/MHO report generation |
-| **BHW** | Resident profiles, household/family folders (Pamilya Folder), offline data entry |
+| **Midwife** | Health program tracking (prenatal, immunization), FHSIS/MHO report generation |
+| **BHW** | Community health tracking, prenatal & immunization records |
 
 ---
 
@@ -20,8 +20,7 @@ This system serves three user roles with distinct dashboards and feature sets:
 
 ### Technology Stack
 - **Single-file HTML + Vanilla JS + CSS** — no build tools needed, runs offline-first
-- **LocalStorage** — simulates a database for all records (residents, users, logs, health data)
-- **IndexedDB** — used for offline-sync simulation for BHW role
+- **LocalStorage** — simulates a database for all records (users, logs, health data)
 - **jsPDF + SheetJS (CDN)** — for PDF/Excel report exports (Midwife feature)
 
 ---
@@ -47,7 +46,6 @@ This system serves three user roles with distinct dashboards and feature sets:
 - **Targeted Health Program Tracking**
   - Prenatal Care: Register patient, track visits (1st–4th trimester), expected delivery date, status
   - Child Immunization: Child records, vaccine schedule (BCG, DPT, OPV, Measles, etc.), due dates, completion status
-  - Senior/Chronic Disease: Patient registration, condition tracking, medication monitoring, follow-up scheduling
 - **Automated FHSIS & MHO Reporting Engine**
   - Monthly report generation per program
   - Export to PDF (jsPDF) or Excel (SheetJS)
@@ -57,15 +55,10 @@ This system serves three user roles with distinct dashboards and feature sets:
 ---
 
 #### 🏘️ BHW Dashboard
-- **Digital Resident Profiles**
-  - Add/Edit/Search residents (name, age, sex, address, contact, health status)
-  - Household/Pamilya Folder grouping (assign residents to a family unit)
-  - View full household records
-- **Offline Data Entry with Auto-Sync**
-  - "Offline Mode" toggle — data saved to IndexedDB when offline
-  - Auto-sync banner when reconnected (simulated)
-  - Pending sync queue indicator
-- **Dashboard**: Total residents, total households, pending syncs, recently added
+- **Community Health Tracking**
+  - Access and view prenatal records
+  - Search and view child immunization records
+- **Dashboard**: Quick stats on assigned community tracking
 
 ---
 

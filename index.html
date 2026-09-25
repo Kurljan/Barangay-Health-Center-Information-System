@@ -291,49 +291,38 @@
     }
     .about-visual {
       display: grid; grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      gap: 20px;
     }
     .about-card {
-      border-radius: 12px;
-      padding: 40px 28px;
+      border-radius: 16px;
+      padding: 32px;
       display: flex; flex-direction: column;
-      justify-content: center;
+      justify-content: center; align-items: flex-start;
+      border: 1px solid var(--gray-200);
+      background: var(--white);
+      transition: var(--transition);
+      min-height: 220px;
     }
-    .about-card-1 {
-      background: var(--blue);
-      color: var(--white);
-      grid-row: span 1;
+    .about-card:hover {
+      border-color: var(--blue-light);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.05);
+      transform: translateY(-4px);
     }
-    .about-card-1 .ac-label {
-      font-size: 0.72rem; font-weight: 700; letter-spacing: 1.5px;
-      text-transform: uppercase; opacity: 0.8; margin-bottom: 16px;
-    }
-    .about-card-1 .ac-title {
-      font-family: 'Outfit', sans-serif; font-size: 1.25rem;
-      font-weight: 700; line-height: 1.4;
-    }
-    .about-card-2 {
+    .ac-icon-wrapper {
+      width: 48px; height: 48px;
+      border-radius: 12px;
       background: var(--blue-pale);
+      color: var(--blue);
       display: flex; align-items: center; justify-content: center;
-      min-height: 180px;
+      font-size: 1.5rem; margin-bottom: 20px;
     }
-    .about-card-2 .ac-icon { font-size: 4rem; opacity: 0.8; }
-    .about-card-3 {
-      background: var(--navy);
-      grid-column: span 2;
-      min-height: 200px;
-      color: var(--white);
-      display: grid; grid-template-columns: 1fr 1fr 1fr;
-      gap: 20px; padding: 32px;
+    .ac-label {
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--gray-500); margin-bottom: 8px;
     }
-    .stat-block { text-align: center; }
-    .stat-block .sb-num {
-      font-family: 'Outfit', sans-serif; font-size: 2rem;
-      font-weight: 900; color: var(--blue-light);
-    }
-    .stat-block .sb-label {
-      font-size: 0.78rem; color: rgba(255,255,255,0.6);
-      margin-top: 4px;
+    .ac-title {
+      font-family: 'Outfit', sans-serif; font-size: 1.25rem;
+      font-weight: 700; color: var(--text-dark); line-height: 1.4;
     }
 
     .about-text .section-tag {
@@ -627,7 +616,6 @@
     @media (max-width: 540px) {
       .hero-title { font-size: 2.6rem; letter-spacing: -1px; }
       .about-visual { grid-template-columns: 1fr; }
-      .about-card-3 { grid-column: span 1; grid-template-columns: 1fr; }
       .footer-top { grid-template-columns: 1fr; }
       .service-item { flex-direction: column; gap: 16px; }
     }
@@ -638,18 +626,18 @@
   <!-- ===== NAVBAR ===== -->
   <nav class="navbar" id="navbar">
     <div class="navbar-brand">
-      <div class="brand-icon"><i class="ph-fill ph-hospital"></i></div>
-      <div class="brand-name">B<span>HIS</span></div>
+      <img src="assets/logo/KibalabagLogo.svg" alt="Kibalabag Logo" style="width: 42px; height: 42px; object-fit: contain;">
+      <div class="brand-name">Kibalabag<span>BHIS</span></div>
     </div>
     <div class="nav-center">
       <a href="#home" class="active">Home</a>
       <a href="#services">Services</a>
       <a href="#about">About</a>
       <a href="#roles">Roles</a>
-      <a href="#login">Login</a>
+      <a href="app.html">Login</a>
     </div>
     <div class="nav-right">
-      <a href="#login" class="nav-cta">Sign In</a>
+      <a href="app.html" class="nav-cta">Sign In</a>
     </div>
   </nav>
 
@@ -660,14 +648,14 @@
     <div class="hero-deco hero-deco-2"></div>
     <div class="hero-deco hero-deco-3"></div>
     <div class="hero-content">
-      <div class="hero-subtitle">Barangay Digital Health Platform</div>
-      <h1 class="hero-title">Barangay<br>Health Center</h1>
+      <div class="hero-subtitle">Kibalabag Digital Health Platform</div>
+      <h1 class="hero-title">Kibalabag<br>Barangay Health Center</h1>
       <p class="hero-desc">
-        A role-based health information system designed for Barangay Health Centers —
+        A role-based health information system designed for Kibalabag Barangay Health Center —
         managing prenatal care, child immunization, resident profiles, and FHSIS reports.
       </p>
       <div class="hero-buttons">
-        <a href="#login" class="btn-hero-primary">Sign In →</a>
+        <a href="app.html" class="btn-hero-primary">Sign In →</a>
         <a href="#services" class="btn-hero-outline">Learn More</a>
       </div>
     </div>
@@ -690,7 +678,7 @@
           <div class="service-name">Prenatal Care Tracking</div>
           <div class="service-desc">Register patients, log prenatal visits with BP, AOG, weight, fundal height, and fetal heart rate. Track delivery outcomes and flag high-risk pregnancies automatically.</div>
         </div>
-        <button class="service-arrow" onclick="location.href='#login'">→</button>
+        <button class="service-arrow" onclick="location.href='app.html'">→</button>
       </div>
       <div class="service-item">
         <div class="service-num">02.</div>
@@ -698,7 +686,7 @@
           <div class="service-name">Child Immunization Records</div>
           <div class="service-desc">Full vaccine schedule tracking — BCG, Hepatitis B, DPT, OPV, Rotavirus, PCV, and Measles — with due/overdue alerts and completion percentage per child.</div>
         </div>
-        <button class="service-arrow" onclick="location.href='#login'">→</button>
+        <button class="service-arrow" onclick="location.href='app.html'">→</button>
       </div>
       <div class="service-item">
         <div class="service-num">03.</div>
@@ -706,7 +694,7 @@
           <div class="service-name">FHSIS &amp; MHO Reporting</div>
           <div class="service-desc">Auto-generate monthly health reports per program type. Preview on-screen, then export to PDF or Excel for submission to the Municipal Health Office.</div>
         </div>
-        <button class="service-arrow" onclick="location.href='#login'">→</button>
+        <button class="service-arrow" onclick="location.href='app.html'">→</button>
       </div>
 
     </div>
@@ -716,41 +704,29 @@
   <section class="about-section" id="about">
     <div class="about-layout">
       <div class="about-visual">
-        <div class="about-card about-card-1">
-          <div class="ac-label">Digital Health</div>
-          <div class="ac-title">Barangay health center management system</div>
+        <div class="about-card">
+          <div class="ac-icon-wrapper"><i class="ph-duotone ph-desktop"></i></div>
+          <div class="ac-label">Digital Platform</div>
+          <div class="ac-title">Paperless health records management</div>
         </div>
-        <div class="about-card about-card-2">
-          <div class="ac-icon"><i class="ph-duotone ph-hospital"></i></div>
-        </div>
-        <div class="about-card about-card-3">
-          <div class="stat-block">
-            <div class="sb-num">3</div>
-            <div class="sb-label">User Roles</div>
-          </div>
-          <div class="stat-block">
-            <div class="sb-num">11+</div>
-            <div class="sb-label">Feature Modules</div>
-          </div>
-          <div class="stat-block">
-            <div class="sb-num">5K+</div>
-            <div class="sb-label">Records Supported</div>
-          </div>
+        <div class="about-card">
+          <div class="ac-icon-wrapper"><i class="ph-duotone ph-shield-check"></i></div>
+          <div class="ac-label">Data Privacy</div>
+          <div class="ac-title">Secure &amp; confidential resident data</div>
         </div>
       </div>
       <div class="about-text">
         <div class="section-tag">About BHIS</div>
         <h2>Your community's health is our priority</h2>
         <p>
-          BHIS is a role-based web application built specifically for barangay health centers.
+          Kibalabag BHIS is a role-based web application built specifically for the Kibalabag barangay health center.
           It replaces manual paper records with a streamlined digital system that tracks
-          prenatal care, child immunization, chronic disease management, and generates
+          prenatal care, child immunization, and generates
           FHSIS reports automatically.
         </p>
         <p>
           Designed for three distinct user roles — Admin, Midwife, and BHW — each with
-          their own dedicated dashboard and feature set. The system supports offline data
-          entry for field health workers and ensures complete data privacy through
+          their own dedicated dashboard and feature set. The system ensures complete data privacy through
           comprehensive audit logging.
         </p>
       </div>
@@ -783,11 +759,10 @@
       <div class="role-card midwife">
         <div class="rc-icon"><i class="ph-duotone ph-first-aid-kit"></i></div>
         <div class="rc-title">Licensed Barangay Midwife</div>
-        <div class="rc-desc">Tracks health programs and generates official FHSIS &amp; MHO reports for submission.</div>
+        <div class="rc-desc">Tracks health programs and generates official FHSIS &amp; MHO reports for submission. (Head Midwife: Shelajoy Libuhan)</div>
         <ul class="rc-list">
           <li>Prenatal care &amp; visit logging</li>
           <li>Child immunization tracking</li>
-          <li>Senior / chronic disease records</li>
           <li>Overdue &amp; high-risk alerts</li>
           <li>Monthly report generation</li>
         </ul>
@@ -795,85 +770,24 @@
       <div class="role-card bhw">
         <div class="rc-icon"><i class="ph-duotone ph-house"></i></div>
         <div class="rc-title">Barangay Health Worker</div>
-        <div class="rc-desc">Manages resident profiles and household records in the field with offline data entry.</div>
+        <div class="rc-desc">Assists with community health tracking, including prenatal and immunization records.</div>
         <ul class="rc-list">
-          <li>Digital resident profiles</li>
-          <li>Pamilya (household) folders</li>
+          <li>Access to prenatal records</li>
+          <li>Search child immunization records</li>
           <li>Health condition tagging</li>
-          <li>Offline data entry &amp; auto-sync</li>
-          <li>Pending sync tracking</li>
         </ul>
       </div>
     </div>
   </section>
 
-  <!-- ===== LOGIN ===== -->
-  <section class="login-section" id="login">
-    <div class="login-layout">
-      <div class="login-info">
-        <div class="section-tag">System Access</div>
-        <h2>Sign in to the Barangay Health System</h2>
-        <p>
-          Access is restricted to authorized barangay health center personnel only.
-          Select your role and enter your credentials to access your dashboard.
-        </p>
-        <div class="login-info-list">
-          <div class="login-info-item">
-            <div class="login-info-icon"><i class="ph-duotone ph-lock-key"></i></div>
-            <span>Role-based access control — each user sees only their dashboard</span>
-          </div>
-          <div class="login-info-item">
-            <div class="login-info-icon"><i class="ph-duotone ph-clipboard-text"></i></div>
-            <span>All actions logged automatically in the audit trail</span>
-          </div>
-          <div class="login-info-item">
-            <div class="login-info-icon"><i class="ph-duotone ph-clock"></i></div>
-            <span>Session management with automatic timeout protection</span>
-          </div>
-        </div>
-      </div>
-      <div class="login-card">
-        <div class="lc-header">
-          <div class="lc-logo"><i class="ph-fill ph-hospital"></i></div>
-          <h3>BHIS Portal</h3>
-          <p>Barangay Health Information System</p>
-        </div>
-        <div style="font-size:0.75rem;color:var(--gray-500);font-weight:600;margin-bottom:8px;">Select your role</div>
-        <div class="role-selector">
-          <button class="role-sel-btn active" data-role="Admin" onclick="selectRole(this)">
-            <span class="rs-icon"><i class="ph-fill ph-user"></i></span>Admin
-          </button>
-          <button class="role-sel-btn" data-role="Midwife" onclick="selectRole(this)">
-            <span class="rs-icon"><i class="ph-fill ph-first-aid-kit"></i></span>Midwife
-          </button>
-          <button class="role-sel-btn" data-role="BHW" onclick="selectRole(this)">
-            <span class="rs-icon"><i class="ph-fill ph-house"></i></span>BHW
-          </button>
-        </div>
-        <div class="form-field">
-          <label for="lp-username">Username</label>
-          <input type="text" id="lp-username" class="form-input" placeholder="Enter your username" autocomplete="username">
-        </div>
-        <div class="form-field">
-          <label for="lp-password">Password</label>
-          <input type="password" id="lp-password" class="form-input" placeholder="Enter your password" autocomplete="current-password">
-        </div>
-        <button class="btn-signin" onclick="handleSignIn()">Sign In →</button>
-        <div class="demo-creds">
-          <p>Demo credentials:</p>
-          <code>admin / admin123</code> · <code>midwife / midwife123</code> · <code>bhw / bhw123</code>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <!-- ===== FOOTER ===== -->
   <footer class="site-footer">
     <div class="footer-top">
       <div class="footer-brand">
         <div class="fb-logo">
-          <div class="fb-icon"><i class="ph-fill ph-hospital"></i></div>
-          <div class="fb-name">B<span>HIS</span></div>
+          <img src="assets/logo/KibalabagLogo.svg" alt="Kibalabag Logo" style="width: 38px; height: 38px; object-fit: contain;">
+          <div class="fb-name">Kibalabag<span>BHIS</span></div>
         </div>
         <p class="fb-desc">
           A role-based health information system for barangay health centers — managing prenatal care, immunization,
@@ -882,8 +796,8 @@
       </div>
       <div class="footer-col">
         <h4>Health Center</h4>
-        <p>Barangay Health Center</p>
-        <p style="margin-top:6px;">Municipal Health Office</p>
+        <p>Kibalabag Barangay Health Center</p>
+        <p style="margin-top:6px;">Malaybalay City</p>
         <p style="margin-top:6px;">Philippines</p>
       </div>
       <div class="footer-col">
@@ -891,7 +805,7 @@
         <a href="#about">About</a>
         <a href="#services">Services</a>
         <a href="#roles">Roles</a>
-        <a href="#login">Sign In</a>
+        <a href="app.html">Sign In</a>
       </div>
       <div class="footer-col">
         <h4>Team</h4>
@@ -914,29 +828,6 @@
   <button class="back-to-top" id="backToTop" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
 
   <script>
-    // Role selector
-    function selectRole(btn) {
-      document.querySelectorAll('.role-sel-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-    }
-
-    // Sign in
-    function handleSignIn() {
-      const username = document.getElementById('lp-username').value.trim();
-      const password = document.getElementById('lp-password').value;
-      if (!username || !password) {
-        alert('Please enter your username and password.');
-        return;
-      }
-      window.location.href = 'app.html';
-    }
-
-    // Enter key
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && document.activeElement.closest('.login-section')) {
-        handleSignIn();
-      }
-    });
 
     // Navbar scroll
     window.addEventListener('scroll', () => {

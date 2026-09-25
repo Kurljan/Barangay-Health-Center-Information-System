@@ -293,6 +293,20 @@ textarea { resize: vertical; }
 }
 .login-logo p { color: var(--text-muted); font-size: 0.8rem; margin-top: 4px; }
 
+.role-selector { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 24px; }
+.role-sel-btn {
+  padding: 10px 4px;
+  background: rgba(0,0,0,0.02); border: 1px solid var(--border);
+  border-radius: var(--radius-md); text-align: center;
+  font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+  transition: var(--transition); cursor: pointer;
+}
+.role-sel-btn .rs-icon { display: block; font-size: 1.3rem; margin-bottom: 3px; }
+.role-sel-btn:hover, .role-sel-btn.active {
+  border-color: var(--primary); color: var(--primary);
+  background: rgba(58, 130, 247, 0.08);
+}
+
 /* ============ FORMS ============ */
 .form-group { margin-bottom: 16px; }
 .form-group label {

@@ -397,7 +397,7 @@ const UI = {
     document.getElementById('sidebar-avatar').textContent = name.charAt(0).toUpperCase();
 
     const settings = Store.get(STORAGE.SETTINGS) || {};
-    document.getElementById('sidebar-barangay').textContent = settings.barangayName || 'BHIS';
+    document.getElementById('sidebar-barangay').textContent = settings.barangayName || 'Kibalabag';
 
     const navMap = {
       Admin: [

@@ -28,12 +28,28 @@
 
   <!-- ===== LOGIN PAGE ===== -->
   <div id="login-page">
-    <div class="login-container">
+    <div class="login-container" style="position: relative;">
+      <a href="index.html" style="position: absolute; top: 32px; left: 32px; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 600; color: var(--gray-600); text-decoration: none; transition: all 0.2s ease;" onmouseover="this.style.color='var(--blue)'" onmouseout="this.style.color='var(--gray-600)'">
+        <i class="ph-bold ph-arrow-left"></i> Back to Home
+      </a>
       <div class="login-card">
         <div class="login-logo">
-          <div class="login-logo-icon" style="font-size: 28px; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: var(--primary); border-radius: 8px; color: #fff; margin: 0 auto 16px;"><i class="ph-fill ph-hospital"></i></div>
-          <h1>BHIS</h1>
-          <p>Barangay Health Information System</p>
+          <img src="assets/logo/KibalabagLogo.svg" alt="Kibalabag Logo" style="width: 80px; height: 80px; margin: 0 auto 16px; display: block; object-fit: contain;">
+          <h1>Kibalabag BHIS</h1>
+          <p>Kibalabag Barangay Health Center</p>
+        </div>
+
+        <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em;">Select your role</div>
+        <div class="role-selector">
+          <button type="button" class="role-sel-btn active" data-role="Admin" onclick="selectRole(this)">
+            <span class="rs-icon"><i class="ph-fill ph-user"></i></span>Admin
+          </button>
+          <button type="button" class="role-sel-btn" data-role="Midwife" onclick="selectRole(this)">
+            <span class="rs-icon"><i class="ph-fill ph-first-aid-kit"></i></span>Midwife
+          </button>
+          <button type="button" class="role-sel-btn" data-role="BHW" onclick="selectRole(this)">
+            <span class="rs-icon"><i class="ph-fill ph-house"></i></span>BHW
+          </button>
         </div>
 
         <form id="login-form" onsubmit="Auth.handleLogin(event)" novalidate>
@@ -89,10 +105,10 @@
     <!-- SIDEBAR -->
     <aside id="sidebar" role="navigation" aria-label="Main navigation">
       <div class="sidebar-logo">
-        <div class="logo-icon"><i class="ph-fill ph-hospital"></i></div>
+        <img src="assets/logo/KibalabagLogo.svg" alt="Kibalabag Logo" style="width: 42px; height: 42px; object-fit: contain;">
         <div class="logo-text">
-          <h2>BHIS</h2>
-          <span id="sidebar-barangay">Barangay Health System</span>
+          <h2>Kibalabag BHIS</h2>
+          <span id="sidebar-barangay">Kibalabag Barangay Health System</span>
         </div>
       </div>
 
@@ -123,5 +139,19 @@
   <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
   <script src="app.js?v=3"></script>
+  <script>
+    function selectRole(btn) {
+      document.querySelectorAll('.role-sel-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const role = btn.getAttribute('data-role').toLowerCase();
+      document.getElementById('login-username').value = role;
+      document.getElementById('login-password').value = role + '123';
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('login-username').value = 'admin';
+      document.getElementById('login-password').value = 'admin123';
+    });
+  </script>
 </body>
 </html>
